@@ -146,6 +146,7 @@ h1{font-family:var(--display);font-size:30px;line-height:1.15;margin:0;font-weig
 @media (max-width:380px){.key span{font-size:12px}h1{font-size:26px}}
 @media (prefers-reduced-motion:reduce){.key{transition:none}}
 </style>
+<div id="micDbg" hidden style="position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);left:50%;transform:translateX(-50%);z-index:30;background:rgba(23,19,31,.94);border:1px solid var(--accent);color:var(--accent);border-radius:20px;padding:2px 12px;font-size:12px;font-weight:700;pointer-events:none;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis"></div>
 <div id="app">
   <section id="hub">
     <div class="top">
@@ -615,15 +616,21 @@ cv.addEventListener('pointerdown',e=>{
 });
 
 /* ---------- 收音：用麥克風聽陶笛的音，當作按下對應的音鍵 ---------- */
-const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:-1,qn:0,
+const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:-1,qn:0,dbgT:0,
   async start(){
     if(this.on)return;
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw {name:'NoSupport'};
-    const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
     const AC=window.AudioContext||window.webkitAudioContext;
-    this.ctx=new AC();if(this.ctx.state==='suspended')this.ctx.resume();
-    const src=this.ctx.createMediaStreamSource(st);
-    this.an=this.ctx.createAnalyser();this.an.fftSize=2048;src.connect(this.an);
+    const ctx=new AC();   // 一定要在「點擊」當下建立（iPhone 需求），不能等到允許麥克風之後
+    let st;
+    try{
+      if(ctx.state==='suspended')await ctx.resume();
+      st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+      if(ctx.state==='suspended')await ctx.resume();
+    }catch(e){try{ctx.close();}catch(_){}throw e;}
+    this.ctx=ctx;
+    const src=ctx.createMediaStreamSource(st);
+    this.an=ctx.createAnalyser();this.an.fftSize=2048;src.connect(this.an);
     this.stream=st;this.buf=new Float32Array(this.an.fftSize);this.on=true;this.cur=-1;this.cand=-1;this.cn=0;
     this.tm=setInterval(()=>this.tick(),30);
   },
@@ -632,31 +639,62 @@ const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:
     if(this.stream)this.stream.getTracks().forEach(t=>t.stop());
     if(this.ctx){try{this.ctx.close();}catch(e){}}
     this.on=false;this.ctx=null;this.stream=null;
+    const el=document.getElementById('micDbg');if(el)el.hidden=true;
   },
   press(i){Snd.hush=true;try{noteDown(i,false);}finally{Snd.hush=false;}},
   release(){if(this.cur>=0){const i=this.cur;this.cur=-1;Snd.hush=true;try{noteUp(i,false);}finally{Snd.hush=false;}}},
+  /* 音高偵測：沿用「音準測試頁」已實測可收音的方法（正規化自相關，180–2200 Hz） */
   detect(){
     const b=this.buf;this.an.getFloatTimeDomainData(b);
-    const N=1024,sr=this.ctx.sampleRate;
-    let e=0;for(let i=0;i<N;i++)e+=b[i]*b[i];
-    if(Math.sqrt(e/N)<0.012)return -1;
-    const lo=Math.max(2,Math.floor(sr/1150)),hi=Math.ceil(sr/480),r=new Float32Array(hi+3);
-    let best=0;
-    for(let L=lo-1;L<=hi+1;L++){let s=0,e2=0;for(let i=0;i<N;i++){const a=b[i],c=b[i+L];s+=a*c;e2+=c*c;}r[L]=s/Math.sqrt(e*e2+1e-9);if(L>=lo&&L<=hi&&r[L]>best)best=r[L];}
-    if(best<.8)return -1;
-    let pick=-1;
-    for(let L=lo;L<=hi;L++){if(r[L]>=best*.92&&r[L]>=r[L-1]&&r[L]>=r[L+1]){pick=L;break;}}
-    if(pick<0)return -1;
-    const a=r[pick-1],m=r[pick],c2=r[pick+1],dn=a-2*m+c2;
-    const L=pick+(dn?(a-c2)/(2*dn):0),f=sr/L;
+    const n=b.length,sr=this.ctx.sampleRate;
+    let sum=0;for(let i=0;i<n;i++)sum+=b[i]*b[i];
+    const rms=Math.sqrt(sum/n),out={note:-1,f:0,cl:0,rms:rms,cents:0};
+    if(rms<0.012)return out;
+    const minLag=Math.max(2,Math.floor(sr/2200)),maxLag=Math.min(n-2,Math.floor(sr/180));
+    const ns=new Float32Array(maxLag+2);
+    for(let lag=minLag-1;lag<=maxLag+1;lag++){let acf=0,m=0;for(let i=0;i<n-lag;i++){const a=b[i],c=b[i+lag];acf+=a*c;m+=a*a+c*c;}ns[lag]=m>0?2*acf/m:0;}
+    const peaks=[];let seenNeg=false,curMax=-1,curIdx=-1;
+    for(let lag=minLag;lag<=maxLag;lag++){
+      const v=ns[lag];
+      if(v<=0){if(curIdx>=0){peaks.push(curIdx);curIdx=-1;curMax=-1;}seenNeg=true;continue;}
+      if(!seenNeg)continue;
+      if(v>curMax){curMax=v;curIdx=lag;}
+    }
+    if(curIdx>=0)peaks.push(curIdx);
+    if(!peaks.length)return out;
+    let high=-1;peaks.forEach(p=>{if(ns[p]>high)high=ns[p];});
+    let ch=-1;for(const p of peaks){if(ns[p]>=0.9*high){ch=p;break;}}
+    if(ch<=minLag||ch>=maxLag)return out;
+    const a=ns[ch-1],bb=ns[ch],c2=ns[ch+1],den=a-2*bb+c2,sh=den!==0?(a-c2)/(2*den):0;
+    out.f=sr/(ch+sh);out.cl=ns[ch];
     let bi=-1,bc=1e9;
-    NOTES.forEach((n,i)=>{const cents=Math.abs(1200*Math.log2(f/n.f));if(cents<bc){bc=cents;bi=i;}});
-    return bc<=50?bi:-1;
+    NOTES.forEach((nt,i)=>{const c=Math.abs(1200*Math.log2(out.f/nt.f));if(c<bc){bc=c;bi=i;}});
+    out.cents=bc;
+    if(out.cl>=0.85&&bc<=50)out.note=bi;
+    return out;
+  },
+  show(d,busy){
+    const now=performance.now();if(now-this.dbgT<120)return;this.dbgT=now;
+    const el=document.getElementById('micDbg');if(!el)return;
+    el.hidden=!this.on;
+    const lv='▮'.repeat(Math.min(8,Math.round(d.rms*80)))||'·';
+    let t='🎤 '+lv;
+    if(d.f&&d.rms>=0.012){
+      t+='  '+Math.round(d.f)+' Hz';
+      if(d.note>=0)t+='  → '+NOTES[d.note].n;
+      else if(d.cl<0.85)t+='  （聲音不夠穩）';
+      else t+='  （不在 Do～高Do，差 '+Math.round(d.cents)+' 音分）';
+    }else if(d.rms<0.012)t+='  聲音太小';
+    if(busy)t+='  遊戲發聲中';
+    el.textContent=t;
   },
   tick(){
     if(!this.on)return;
-    if(Snd.busy())return;   // 遊戲自己在發聲時先不聽，避免把喇叭的聲音當成吹奏
-    const n=this.detect();
+    const busy=Snd.busy();   // 遊戲自己在發聲時先不聽，避免把喇叭的聲音當成吹奏
+    const d=this.detect();
+    this.show(d,busy);
+    if(busy)return;
+    const n=d.note;
     if(n>=0){
       this.qn=0;if(n===this.cur)return;
       if(n===this.cand)this.cn++;else{this.cand=n;this.cn=1;}
@@ -684,7 +722,7 @@ async function toggleMic(){
     toast('收音開啟：直接吹陶笛就會按到對應的音（戴耳機效果最好）');
   }catch(e){
     micUi();
-    toast(e&&e.name==='NotAllowedError'?'麥克風被擋住了，請允許使用麥克風；LINE／IG 內建瀏覽器常會擋，請改用手機瀏覽器開':(window.claude?'Claude 頁面裡無法收音，請按上方「開啟收音版」用瀏覽器開':'這個瀏覽器無法開啟收音，請改用畫面音鍵'));
+    toast(e&&e.name==='NotAllowedError'?'麥克風被擋住了，請允許使用麥克風；LINE／IG 內建瀏覽器常會擋，請改用手機瀏覽器開':(window.claude?'Claude 頁面裡無法收音，請按上方「開啟收音版」用瀏覽器開':'這個瀏覽器無法開啟收音，請改用畫面音鍵')+'［'+(e&&e.name||'未知')+'］');
   }
 }
 document.getElementById('micBtn').addEventListener('click',toggleMic);
