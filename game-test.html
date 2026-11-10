@@ -694,8 +694,8 @@ $('yt-go').addEventListener('click',()=>{if(YT_URL)window.open(YT_URL,'_blank','
 
 /* ===== 練習：麥克風判音（偵測器沿用「音準測試頁」）===== */
 const HOLD_MS=1000, QUIET_FAIL_MS=5000;                 /* 暫定：穩住 1 秒算成功、停頓 5 秒算失敗 */
-const SCALE_MIDI=[72,74,76,77,79,81,83,84];             /* 1=C：C5～C6 */
-const SCALE_NUM=['1','2','3','4','5','6','7','高 1'];
+const SCALE_MIDI=[69,71,72,74,76,77,79,81,83,84,86,88,89,91,93];   /* 1=C：低 la(A4)～第三個八度的 la(A6) */
+const SCALE_NUM=['低6','低7','1','2','3','4','5','6','7','高1','高2','高3','高4','高5','高6'];
 const MN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const mname=m=>MN[((m%12)+12)%12]+(Math.floor(m/12)-1);
 let SUCC=12;
@@ -712,7 +712,7 @@ function renderProgress(){
 renderProgress();
 
 (function buildTargets(){
-  let h='<option value="">不指定（任何 Do～高 Do 的音）</option>';
+  let h='<option value="">不指定（低 la～高 6 之間的任何音）</option>';
   SCALE_MIDI.forEach((m,i)=>{h+='<option value="'+m+'">'+SCALE_NUM[i]+'（'+mname(m)+'）</option>';});
   $('b-target').innerHTML=h;
 })();
@@ -850,7 +850,7 @@ function handlePitch(mf,now){
   }else{
     if(!B.badSince)B.badSince=now;
     if(now-B.badSince>250){B.holdNote=null;$('b-hold').style.width='0';$('b-hold-t').textContent='0.0 / '+(HOLD_MS/1000).toFixed(1)+' 秒';}
-    if(tv===''&&k<0)setMsg('不在 1～高 1 的音裡','var(--ruby)');
+    if(tv===''&&k<0)setMsg('不在 低6～高6 的音裡','var(--ruby)');
     else setMsg((cents>0?'偏高 ':'偏低 ')+Math.round(ac)+' 音分','var(--ruby)');
   }
 }

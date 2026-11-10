@@ -408,9 +408,9 @@ function scene(i){
 const BGM=new Audio(M('bgm'));BGM.loop=true;BGM.preload='auto';BGM.volume=0;
 let bgmOn=true,bgmFade=null,practiceHold=false;
 const bgmBtn=document.createElement('button');bgmBtn.type='button';bgmBtn.id='bgmbtn';bgmBtn.setAttribute('aria-label','音樂開關');bgmBtn.textContent='♪';document.body.appendChild(bgmBtn);
-function fadeTo(v,done){clearInterval(bgmFade);bgmFade=setInterval(()=>{const d=v-BGM.volume;if(Math.abs(d)<.03){BGM.volume=v;clearInterval(bgmFade);done&&done()}else BGM.volume=Math.max(0,Math.min(1,BGM.volume+Math.sign(d)*.03))},60)}
+function fadeTo(v,done){clearInterval(bgmFade);let n=0;bgmFade=setInterval(()=>{n++;const d=v-BGM.volume;if(Math.abs(d)<.03||n>20){try{BGM.volume=v}catch(e){}clearInterval(bgmFade);done&&done()}else BGM.volume=Math.max(0,Math.min(1,BGM.volume+Math.sign(d)*.03))},60)}
 function bgm(){bgmBtn.style.display='flex';bgmBtn.classList.toggle('off',!bgmOn);
-  if(bgmOn&&!practiceHold){const p=BGM.play();if(p&&p.catch)p.catch(()=>{});fadeTo(.55)}else fadeTo(0,()=>BGM.pause())}
+  if(bgmOn&&!practiceHold){const p=BGM.play();if(p&&p.catch)p.catch(()=>{});fadeTo(.55)}else{clearInterval(bgmFade);BGM.pause()}}
 /* 手機瀏覽器不允許自動出聲：先嘗試播放，失敗就在第一次觸碰畫面時開始 */
 const bgmKick=()=>{if(bgmOn&&!practiceHold&&BGM.paused)bgm();else if(!BGM.paused)removeEventListener('pointerdown',bgmKick,true)};
 addEventListener('pointerdown',bgmKick,true);
