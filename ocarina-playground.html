@@ -622,7 +622,10 @@ cv.addEventListener('pointerdown',e=>{
 
 /* ---------- 收音：用麥克風聽陶笛的音，當作按下對應的音鍵 ---------- */
 const GATE=0.007;
-const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:-1,qn:0,dbgT:0,lat:.16,fromMic:false,cal:null,off:0,
+const SCALE_MIDI=NOTES.map(n=>Math.round(69+12*Math.log2(n.f/440)));   // Do～高Do 對應的 MIDI 音號（72,74,76,77,79,81,83,84）
+const MNAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function midiName(m){return MNAMES[((m%12)+12)%12]+(Math.floor(m/12)-1);}
+const Mic={hist:[],miss:0,sm:null,smT:0,on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:-1,qn:0,dbgT:0,lat:.16,fromMic:false,cal:null,off:0,
   async start(){
     if(this.on)return;
     this.off=0;try{localStorage.removeItem('ocarina_mic_off');}catch(e){}   // 一律用標準音高（A=440），不做個人校準，每個小孩的陶笛都用同一把尺
@@ -638,8 +641,8 @@ const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:
     this.ctx=ctx;
     const src=ctx.createMediaStreamSource(st);
     this.an=ctx.createAnalyser();this.an.fftSize=2048;src.connect(this.an);
-    this.stream=st;this.buf=new Float32Array(this.an.fftSize);this.on=true;this.cur=-1;this.cand=-1;this.cn=0;
-    this.tm=setInterval(()=>this.tick(),30);
+    this.stream=st;this.buf=new Float32Array(this.an.fftSize);this.on=true;this.cur=-1;this.cand=-1;this.cn=0;this.hist=[];this.miss=0;this.sm=null;
+    this.tm=setInterval(()=>this.tick(),20);
   },
   stop(){
     clearInterval(this.tm);this.release();
@@ -673,11 +676,7 @@ const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:
     let ch=-1;for(const p of peaks){if(ns[p]>=0.9*high){ch=p;break;}}
     if(ch<=minLag||ch>=maxLag)return out;
     const a=ns[ch-1],bb=ns[ch],c2=ns[ch+1],den=a-2*bb+c2,sh=den!==0?(a-c2)/(2*den):0;
-    out.raw=sr/(ch+sh);out.f=out.raw/Math.pow(2,this.off/1200);out.cl=ns[ch];
-    let bi=-1,bc=1e9;
-    NOTES.forEach((nt,i)=>{const c=Math.abs(1200*Math.log2(out.f/nt.f));if(c<bc){bc=c;bi=i;}});
-    out.cents=bc;
-    if(out.cl>=0.85&&bc<=50)out.note=bi;
+    out.raw=sr/(ch+sh);out.f=out.raw;out.cl=ns[ch];
     return out;
   },
   show(d,busy){
@@ -686,52 +685,37 @@ const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:
     el.hidden=!this.on;
     const lv='▮'.repeat(Math.min(8,Math.round(d.rms*80)))||'·';
     let t='🎤 '+lv;
-    if(d.f&&d.rms>=GATE){
-      t+='  '+Math.round(d.raw)+' Hz';
-      if(d.note>=0)t+='  → '+NOTES[d.note].n;
-      else if(d.cl<0.85)t+='  （聲音不夠穩）';
-      else t+='  （不在 Do～高Do，差 '+Math.round(d.cents)+' 音分）';
+    if(this.sm!=null&&now-this.smT<350){
+      const m=Math.round(this.sm),c=Math.round((this.sm-m)*100),hz=440*Math.pow(2,(this.sm-69)/12),k=SCALE_MIDI.indexOf(m);
+      t+='  '+Math.round(hz)+' Hz → '+midiName(m)+(k>=0?'（'+NUM[k]+' '+NOTES[k].n+'）':'（不在 Do～高Do）')+'  '+(c>0?'+':'')+c+'¢';
     }else if(d.rms<GATE)t+='  聲音太小';
-    if(this.cal)t='🎤 校準中：請吹 Do（1）　'+Math.round(d.raw||0)+' Hz';
-    else if(this.off)t+='  ［已校準 '+(this.off>0?'+':'')+Math.round(this.off)+']';
+    else if(d.f&&d.cl<0.85)t+='  （聲音不夠穩）';
     if(busy)t+='  遊戲發聲中';
     el.textContent=t;
   },
-  calibrate(){
-    if(!this.on){toast('請先按「🎤 收音」開啟收音');return;}
-    this.release();this.cand=-1;this.cn=0;
-    this.cal={fs:[],t0:performance.now()};
-    toast('校準：請用你的陶笛吹 Do（1），穩穩吹約 2 秒');
-  },
-  calTick(d){
-    const c=this.cal;
-    if(d.raw&&d.cl>=0.85&&d.rms>=GATE)c.fs.push(d.raw);
-    if(performance.now()-c.t0<3500)return;
-    this.cal=null;
-    if(c.fs.length<10){toast('聽不清楚，請靠近麥克風、穩穩吹 Do 再按一次「校準」');return;}
-    const s=c.fs.slice().sort((a,b)=>a-b),med=s[Math.floor(s.length/2)];
-    const cents=1200*Math.log2(med/523.25);
-    if(Math.abs(cents)>1500){toast('這個音離 Do 太遠（'+Math.round(med)+' Hz），請確認吹的是 Do（1）');return;}
-    this.off=cents;
-    try{localStorage.setItem('ocarina_mic_off',String(cents));}catch(e){}
-    toast('校準完成：你的 Do 是 '+Math.round(med)+' Hz，已記住');
-  },
+  /* 跟「音準測試頁」同一套做法：連續幾次偵測取中間值，再換成最近的音（標準音高 A=440，不做個人校準） */
   tick(){
     if(!this.on)return;
     const busy=Snd.busy();   // 遊戲自己在發聲時先不聽，避免把喇叭的聲音當成吹奏
     const d=this.detect();
     this.lastD=d;this.lastT=performance.now();
+    if(!busy){
+      if(d.f&&d.rms>=GATE&&d.cl>=0.85){
+        this.miss=0;this.hist.push(69+12*Math.log2(d.f/440));if(this.hist.length>5)this.hist.shift();
+      }else if(++this.miss>6)this.hist=[];
+      if(this.hist.length>=3){const a=this.hist.slice().sort((x,y)=>x-y);this.sm=a[a.length>>1];this.smT=performance.now();}
+      else if(!this.hist.length)this.sm=null;
+    }
     this.show(d,busy);
-    if(this.cal){this.calTick(d);return;}
     if(busy)return;
-    const n=d.note;
+    const n=(this.sm!=null&&this.hist.length>=3)?SCALE_MIDI.indexOf(Math.round(this.sm)):-1;
     if(n>=0){
       this.qn=0;if(n===this.cur)return;
       if(n===this.cand)this.cn++;else{this.cand=n;this.cn=1;}
-      if(this.cn>=2){if(this.cur>=0)this.release();this.cur=n;this.press(n);}
+      if(this.cn>=1){if(this.cur>=0)this.release();this.cur=n;this.press(n);}
     }else{
       this.cand=-1;this.cn=0;
-      if(this.cur>=0){this.qn++;if(this.qn>=4)this.release();}
+      if(this.cur>=0){this.qn++;if(this.qn>=2)this.release();}
     }
   }
 };
@@ -2243,9 +2227,8 @@ GAMES.push({id:'follow',name:'跟著吹',tag:'收音 · 音準',color:'#ffb347',
     {const bn=Math.floor(hold/BEAT+1e-6);if(bn<lb)lb=bn;}
   };
   function tunerData(t){
-    if(!(Mic.on&&Mic.lastD&&performance.now()-Mic.lastT<350))return null;
-    const d=Mic.lastD;if(d.rms<GATE||d.cl<0.85||!d.f)return null;
-    const c=1200*Math.log2(d.f/NOTES[t].f);
+    if(!(Mic.on&&Mic.sm!=null&&performance.now()-Mic.smT<350))return null;
+    const c=(Mic.sm-69-12*Math.log2(NOTES[t].f/440))*100;   // 平滑後的音高，與目標音差幾個音分
     return Math.abs(c)<=150?c:null;
   }
   function fing(c,x,y,w,h,p){
