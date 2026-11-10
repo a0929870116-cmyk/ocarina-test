@@ -364,6 +364,7 @@ function click(t,accent){
   o.type='square';o.frequency.value=accent?1500:1000;
   g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.18,t+0.002);g.gain.exponentialRampToValueAtTime(0.0001,t+0.04);
   o.connect(g);g.connect(ctx.destination);o.start(t);o.stop(t+0.06);
+  return {o,g};
 }
 function setLive(c,l){$('count').textContent=c;$('live').textContent=l||' ';}
 
@@ -374,9 +375,9 @@ async function startRun(){
   const bpm=parseInt($('bpm').value,10),beat=60/bpm,tol=parseFloat($('tol').value);
   const T0=ctx.currentTime+0.7;
   const S=T0+COUNT_IN*beat;
-  const clicks=[];
-  for(let k=0;k<COUNT_IN+TOTAL_BEATS;k++){const t=T0+k*beat;clicks.push(t);click(t,k%4===0);}
-  run={bpm,beat,tol,T0,S,clicks,frames:[],hist:[],raw:0,lastBeat:-1,outLat:(ctx.outputLatency||0)+(ctx.baseLatency||0),done:false};
+  const clicks=[],nodes=[];
+  for(let k=0;k<COUNT_IN+TOTAL_BEATS;k++){const t=T0+k*beat;clicks.push(t);nodes.push(click(t,k%4===0));}
+  run={bpm,beat,tol,T0,S,clicks,nodes,frames:[],hist:[],raw:0,lastBeat:-1,outLat:(ctx.outputLatency||0)+(ctx.baseLatency||0),done:false};
   resetPaint();
   $('resCard').hidden=true;$('liveBox').hidden=false;
   $('goBtn').hidden=true;$('stopBtn').hidden=false;$('goBtn').disabled=false;
@@ -385,8 +386,9 @@ async function startRun(){
   notifyParent(true);
   loop();
 }
+function killClicks(r){if(!r||!r.nodes)return;r.nodes.forEach(x=>{try{x.o.onended=null;x.o.stop();}catch(e){}try{x.o.disconnect();x.g.disconnect();}catch(e){}});r.nodes=[];}
 function stopRun(){
-  if(run){run.done=true;run=null;}
+  if(run){run.done=true;killClicks(run);run=null;}
   cancelAnimationFrame(raf);
   $('liveBox').hidden=true;$('stopBtn').hidden=true;$('goBtn').hidden=false;$('bpm').disabled=false;$('tol').disabled=false;
   resetPaint();
@@ -434,7 +436,7 @@ function loop(){
 }
 function finish(){
   const r=run;if(!r)return;
-  r.done=true;cancelAnimationFrame(raf);run=null;
+  r.done=true;killClicks(r);cancelAnimationFrame(raf);run=null;
   const res=judge(r.frames,r.S,r.beat,r.outLat,r.tol);
   showResult(res);
   $('liveBox').hidden=true;$('stopBtn').hidden=true;$('goBtn').hidden=false;$('bpm').disabled=false;$('tol').disabled=false;
