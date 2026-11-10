@@ -564,7 +564,7 @@ function startRound(){
   cur.reset();cur.state='count';
   if(demo)addBanner();else removeBanner();
   const me=cur;
-  countdown(()=>{if(cur===me&&me.state==='count')me.state='run';});
+  countdown(()=>{if(cur===me&&me.state==='count'){me.state='run';if(me.sync)[...padDown].forEach(i=>me.down(i));}});
 }
 function openGame(g,wantDemo){
   clearGate();stopCountdown();
@@ -2182,7 +2182,7 @@ GAMES.push({id:'follow',name:'跟著吹',tag:'收音 · 音準',color:'#ffb347',
     {label:'內容',choices:[['簡單：Do Mi Sol 高Do'],['音階 Do→高Do'],['🎲 隨機 5 個音']],val:0},
     {label:'每個音吹滿幾拍（節拍器 70 BPM）',choices:[['6 拍'],['8 拍'],['10 拍']],val:0}],state:'intro'};
   const BEAT=60/70,BEATS=[6,8,10];
-  let seq,idx,hold,need,nb,held,wrongs,wrongT,wc,block,quiet,time,sched,flash,needle,pulse,lb;
+  let seq,idx,hold,need,nb,held,wrongs,wrongT,wc,block,quiet,time,sched,flash,needle,pulse,lb,fbOn=false;
   function at(d,fn){sched.push({t:time+d,fn});}
   function demoNote(){const t=seq[idx];at(.9,()=>api.press(t));at(.9+need+.2,()=>api.release(t));}
   g.reset=function(){
@@ -2190,7 +2190,7 @@ GAMES.push({id:'follow',name:'跟著吹',tag:'收音 · 音準',color:'#ffb347',
     if(so===0)seq=[0,2,4,7];
     else if(so===1)seq=[0,1,2,3,4,5,6,7];
     else{seq=[];let p=-1;for(let k=0;k<5;k++){let d;do{d=Math.floor(Math.random()*8);}while(d===p);seq.push(d);p=d;}}
-    nb=BEATS[this.options[1].val];need=nb*BEAT;lb=-1;idx=0;hold=0;held=-1;wrongs=0;wrongT=0;wc=false;block=-1;quiet=0;time=0;sched=[];flash=0;needle=0;pulse=0;
+    fbOn=false;    nb=BEATS[this.options[1].val];need=nb*BEAT;lb=-1;idx=0;hold=0;held=-1;wrongs=0;wrongT=0;wc=false;block=-1;quiet=0;time=0;sched=[];flash=0;needle=0;pulse=0;
     api.score('1/'+seq.length);
     if(api.demo)demoNote();
   };
@@ -2216,21 +2216,28 @@ GAMES.push({id:'follow',name:'跟著吹',tag:'收音 · 音準',color:'#ffb347',
     const r=Math.min(api.W*.18,70),cx=api.W/2,cy=api.H*.3;
     if(Math.hypot(x-cx,y-cy)<r+16){api.tone(seq[idx],.9);pulse=1;}
   };
+  g.sync=true;   // 倒數結束時，把已經在吹的音補送進來
   g.update=function(dt){
     time+=dt;flash=Math.max(0,flash-dt*2.5);pulse=Math.max(0,pulse-dt*1.5);
     for(let k=sched.length-1;k>=0;k--){if(sched[k].t<=time){const f=sched[k].fn;sched.splice(k,1);f();}}
     if(idx>=seq.length)return;
     const t=seq[idx];
-    if(held<0){
+    // 指針顯示準（±50 音分內）就直接算數，不必等收音端的按鍵判定，畫面和進度才會一致
+    let hv=held;
+    if(hv<0&&Mic.on){
+      if(!Snd.busy()){const cc=tunerData(t);fbOn=cc!=null&&Math.abs(cc)<=50;}   // 節拍器「嗒」聲的空檔沿用上一刻的判斷
+      if(fbOn)hv=t;
+    }else fbOn=false;
+    if(hv<0){
       quiet+=dt;if(quiet>.12)block=-1;
       if(quiet>.35)hold=Math.max(0,hold-dt*3);   // 麥克風偶爾漏一下，不要馬上扣掉
       wrongT=0;
-    }else if(held===t&&block!==t){
+    }else if(hv===t&&block!==t){
       hold+=dt;
       const bn=Math.floor(hold/BEAT+1e-6);
       if(bn>lb){lb=bn;if(bn<nb)api.click(bn%4===0);}
       if(hold>=need)success();
-    }else if(held!==t&&held!==block){
+    }else if(hv!==t&&hv!==block){
       if(wrongT>.2)hold=Math.max(0,hold-dt*3);
       wrongT+=dt;
       if(wrongT>.3&&!wc){wc=true;wrongs++;}
