@@ -2179,7 +2179,7 @@ GAMES.push({id:'follow',name:'跟著吹',tag:'收音 · 音準',color:'#ffb347',
  why:'練的是：找到音、吹準音高、把氣息吹穩。畫面有指法圖和音準指針；沒有開收音時，按畫面音鍵也能玩。',
  make(api){
   const g={options:[
-    {label:'內容',choices:[['音階 Do→高Do→Do']].concat(SONGS.map(s=>[s.name])).concat([['🎲 隨機短句']]),val:0},
+    {label:'內容',choices:[['簡單：Do Mi Sol 高Do'],['音階 Do→高Do'],['🎲 隨機 5 個音']],val:0},
     {label:'每個音吹滿幾拍（節拍器 70 BPM）',choices:[['6 拍'],['8 拍'],['10 拍']],val:0}],state:'intro'};
   const BEAT=60/70,BEATS=[6,8,10];
   let seq,idx,hold,need,nb,held,wrongs,wrongT,wc,block,quiet,time,sched,flash,needle,pulse,lb;
@@ -2187,9 +2187,9 @@ GAMES.push({id:'follow',name:'跟著吹',tag:'收音 · 音準',color:'#ffb347',
   function demoNote(){const t=seq[idx];at(.9,()=>api.press(t));at(.9+need+.2,()=>api.release(t));}
   g.reset=function(){
     const so=this.options[0].val;
-    if(so===0)seq=[0,1,2,3,4,5,6,7];
-    else if(so<=SONGS.length)seq=SONGS[so-1].seq.map(s=>s[0]);
-    else seq=genPhrase(10).map(s=>s[0]);
+    if(so===0)seq=[0,2,4,7];
+    else if(so===1)seq=[0,1,2,3,4,5,6,7];
+    else{seq=[];let p=-1;for(let k=0;k<5;k++){let d;do{d=Math.floor(Math.random()*8);}while(d===p);seq.push(d);p=d;}}
     nb=BEATS[this.options[1].val];need=nb*BEAT;lb=-1;idx=0;hold=0;held=-1;wrongs=0;wrongT=0;wc=false;block=-1;quiet=0;time=0;sched=[];flash=0;needle=0;pulse=0;
     api.score('1/'+seq.length);
     if(api.demo)demoNote();
