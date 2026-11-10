@@ -387,6 +387,12 @@ a.btn{text-decoration:none}
       <details class="set"><summary>環境檢查</summary><ul class="diag" id="diag"></ul></details>
     </section>
 
+    <section class="page card" aria-labelledby="wk-h">
+      <div class="sec-head" style="margin:0"><h2 id="wk-h">每週練習</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg></div>
+      <button class="btn" id="wk-go">本週任務：基本指法 1-1</button>
+      <p class="hint">照樂譜吹 20 次，會檢查音準與節拍，吹完告訴你哪裡要改。</p>
+    </section>
+
     <section class="page card" aria-labelledby="dy-h">
       <div class="sec-head" style="margin:0"><h2 id="dy-h">動態樂譜</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg></div>
       <button class="btn alt" id="yt-go">前往 YouTube 頻道</button>
@@ -897,6 +903,7 @@ $('game-open').addEventListener('click',()=>{
   $('game-box').scrollIntoView({behavior:'smooth',block:'start'});
 });
 $('game-close').addEventListener('click',closeGame);
+$('wk-go').addEventListener('click',()=>{stopBlow();location.href='weekly-practice.html';});
 try{const q=new URLSearchParams(location.search).get('n');if(q)$('uname').textContent=q}catch(e){}
 show(location.hash.slice(1));
 </script>
