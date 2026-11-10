@@ -356,7 +356,18 @@ a.btn{text-decoration:none}
 
   <!-- ===== 練習 ===== -->
   <div class="view" id="v-practice" hidden>
-    <section class="page card" aria-labelledby="pr-h">
+    <section class="page card" aria-labelledby="wk-h">
+      <div class="sec-head" style="margin:0"><h2 id="wk-h">每週練習</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg></div>
+      <div class="live">
+        <p class="kicker">本週任務：基本指法 1-1</p>
+        <p class="big2 num" id="wk-n">0 / 20</p>
+      </div>
+      <div class="meter"><div class="row"><span>星星罐</span><span class="num" id="wk-jar-t">9 / 15</span></div><div class="track"><i id="wk-jar-bar" style="width:60%"></i></div></div>
+      <button class="btn" id="wk-go"><svg><use href="#n-ocarina"/></svg><span>開始本週練習</span></button>
+      <p class="hint">照樂譜吹，音準與節拍全部都對才算一次，每次 +2 顆星星糖。吹完會告訴你哪裡要改。</p>
+    </section>
+
+    <section class="page card" aria-labelledby="pr-h" hidden style="display:none">
       <div class="sec-head" style="margin:0"><h2 id="pr-h">吹奏練習</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg></div>
       <div class="live">
         <p class="kicker">累計成功次數</p>
@@ -387,11 +398,7 @@ a.btn{text-decoration:none}
       <details class="set"><summary>環境檢查</summary><ul class="diag" id="diag"></ul></details>
     </section>
 
-    <section class="page card" aria-labelledby="wk-h">
-      <div class="sec-head" style="margin:0"><h2 id="wk-h">每週練習</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg></div>
-      <button class="btn" id="wk-go">本週任務：基本指法 1-1</button>
-      <p class="hint">照樂譜吹 20 次，會檢查音準與節拍，吹完告訴你哪裡要改。</p>
-    </section>
+    
 
     <section class="page card" aria-labelledby="dy-h">
       <div class="sec-head" style="margin:0"><h2 id="dy-h">動態樂譜</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg></div>
@@ -707,7 +714,14 @@ const mname=m=>MN[((m%12)+12)%12]+(Math.floor(m/12)-1);
 let SUCC=12;
 try{const sv=JSON.parse(localStorage.getItem('olm_test_v1')||'null');if(sv){SUCC=sv.succ|0;JAR=Math.max(0,Math.min(NEED,sv.jar|0));}}catch(e){}
 function saveP(){try{localStorage.setItem('olm_test_v1',JSON.stringify({succ:SUCC,jar:JAR}));}catch(e){}}
+function renderWeekly(){
+  let n=0;try{const o=JSON.parse(localStorage.getItem('olm_weekly_v1')||'null');if(o&&typeof o.perfect==='number')n=o.perfect;}catch(e){}
+  const e=$('wk-n');if(e)e.textContent=Math.min(n,20)+' / 20'+(n>20?'（累計 '+n+'）':'');
+  const t=$('wk-jar-t');if(t)t.textContent=JAR+' / '+NEED;
+  const b=$('wk-jar-bar');if(b)b.style.width=(JAR/NEED*100)+'%';
+}
 function renderProgress(){
+  renderWeekly();
   $('succ').textContent=SUCC;
   $('pr-jar-t').textContent=JAR+' / '+NEED;
   $('pr-jar-bar').style.width=(JAR/NEED*100)+'%';
@@ -888,6 +902,7 @@ function blowLoop(){
 }
 $('start-blow').addEventListener('click',()=>{if(B.on)stopBlow();else startBlow();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopBlow();});
+window.addEventListener('pageshow',e=>{if(e.persisted){try{const sv=JSON.parse(localStorage.getItem('olm_test_v1')||'null');if(sv){SUCC=sv.succ|0;JAR=Math.max(0,Math.min(NEED,sv.jar|0));}}catch(_){}renderProgress();}});
 $('reset-p').addEventListener('click',()=>{SUCC=12;JAR=9;B.tries=[];saveP();renderProgress();drawTries();toast('已重設為示範進度');});
 
 /* ===== 小遊戲：直接嵌入收音版遊樂場（同一個網站，麥克風權限可往下傳） ===== */

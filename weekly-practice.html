@@ -319,6 +319,8 @@ const KEY='olm_weekly_v1',GOAL=20;
 let P={done:0,perfect:0};
 try{const o=JSON.parse(localStorage.getItem(KEY)||'null');if(o&&typeof o.done==='number')P=o;}catch(e){}
 function saveP(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}}
+/* 每次全對 +2 星星糖：寫進遊戲頁的存檔（olm_test_v1，罐上限 15） */
+function awardStar(){try{const o=JSON.parse(localStorage.getItem('olm_test_v1')||'null')||{succ:12,jar:9};o.succ=(o.succ|0)+1;o.jar=Math.min(15,(o.jar|0)+2);localStorage.setItem('olm_test_v1',JSON.stringify(o));}catch(e){}}
 function renderP(){
   const d=Math.min(P.perfect,GOAL);
   $('barFill').style.width=(d/GOAL*100)+'%';
@@ -459,7 +461,7 @@ function showResult(res){
   if(!s.counted){
     v.textContent='好像沒吹完，這次不算次數。請確認有收到聲音再試一次。';v.style.color='var(--ruby)';
   }else{
-    P.done++;if(s.perfect)P.perfect++;saveP();renderP();
+    P.done++;if(s.perfect){P.perfect++;awardStar();}saveP();renderP();
     if(s.perfect){
       v.textContent=P.perfect===GOAL?'🎉 恭喜完成本週任務！正確 '+GOAL+' 次達成':'全部都對！累計正確 '+P.perfect+' 次 🌟';
       v.style.color='var(--green)';
