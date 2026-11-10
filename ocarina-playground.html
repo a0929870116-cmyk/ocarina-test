@@ -193,7 +193,6 @@ h1{font-family:var(--display);font-size:30px;line-height:1.15;margin:0;font-weig
       <button class="back" id="back" aria-label="回選單">←</button>
       <div class="gtitle" id="gtitle"></div>
       <div class="score" id="score"></div>
-      <button class="mode" id="micCal" hidden>校準</button>
       <button class="mode" id="micS" aria-label="收音開關">🎤</button>
       <button class="mode" id="mode">自己玩</button>
     </div>
@@ -626,7 +625,7 @@ const GATE=0.007;
 const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:-1,qn:0,dbgT:0,lat:.16,fromMic:false,cal:null,off:0,
   async start(){
     if(this.on)return;
-    try{this.off=+localStorage.getItem('ocarina_mic_off')||0;}catch(e){}
+    this.off=0;try{localStorage.removeItem('ocarina_mic_off');}catch(e){}   // 一律用標準音高（A=440），不做個人校準，每個小孩的陶笛都用同一把尺
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw {name:'NoSupport'};
     const AC=window.AudioContext||window.webkitAudioContext;
     const ctx=new AC();   // 一定要在「點擊」當下建立（iPhone 需求），不能等到允許麥克風之後
@@ -760,7 +759,6 @@ async function toggleMic(){
 }
 document.getElementById('micBtn').addEventListener('click',toggleMic);
 document.getElementById('micS').addEventListener('click',toggleMic);
-document.getElementById('micCal').addEventListener('click',()=>Mic.calibrate());
 micUi();
 
 /* ---------- 主選單 ---------- */
@@ -2225,7 +2223,7 @@ GAMES.push({id:'follow',name:'跟著吹',tag:'收音 · 音準',color:'#ffb347',
     // 指針顯示準（±50 音分內）就直接算數，不必等收音端的按鍵判定，畫面和進度才會一致
     let hv=held;
     if(hv<0&&Mic.on){
-      if(!Snd.busy()){const cc=tunerData(t);fbOn=cc!=null&&Math.abs(cc)<=50;}   // 節拍器「嗒」聲的空檔沿用上一刻的判斷
+      if(!Snd.busy()){const cc=tunerData(t);fbOn=cc!=null&&Math.abs(cc)<=60;}   // 節拍器「嗒」聲的空檔沿用上一刻的判斷
       if(fbOn)hv=t;
     }else fbOn=false;
     if(hv<0){
