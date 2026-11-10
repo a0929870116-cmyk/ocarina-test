@@ -187,6 +187,7 @@ h1{font-family:var(--display);font-size:30px;line-height:1.15;margin:0;font-weig
       <button class="back" id="back" aria-label="回選單">←</button>
       <div class="gtitle" id="gtitle"></div>
       <div class="score" id="score"></div>
+      <button class="mode" id="micCal" hidden>校準</button>
       <button class="mode" id="micS" aria-label="收音開關">🎤</button>
       <button class="mode" id="mode">自己玩</button>
     </div>
@@ -616,9 +617,11 @@ cv.addEventListener('pointerdown',e=>{
 });
 
 /* ---------- 收音：用麥克風聽陶笛的音，當作按下對應的音鍵 ---------- */
-const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:-1,qn:0,dbgT:0,
+const GATE=0.007;
+const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:-1,qn:0,dbgT:0,lat:.16,fromMic:false,cal:null,off:0,
   async start(){
     if(this.on)return;
+    try{this.off=+localStorage.getItem('ocarina_mic_off')||0;}catch(e){}
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw {name:'NoSupport'};
     const AC=window.AudioContext||window.webkitAudioContext;
     const ctx=new AC();   // 一定要在「點擊」當下建立（iPhone 需求），不能等到允許麥克風之後
@@ -641,15 +644,15 @@ const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:
     this.on=false;this.ctx=null;this.stream=null;
     const el=document.getElementById('micDbg');if(el)el.hidden=true;
   },
-  press(i){Snd.hush=true;try{noteDown(i,false);}finally{Snd.hush=false;}},
+  press(i){Snd.hush=true;this.fromMic=true;try{noteDown(i,false);}finally{Snd.hush=false;this.fromMic=false;}},
   release(){if(this.cur>=0){const i=this.cur;this.cur=-1;Snd.hush=true;try{noteUp(i,false);}finally{Snd.hush=false;}}},
   /* 音高偵測：沿用「音準測試頁」已實測可收音的方法（正規化自相關，180–2200 Hz） */
   detect(){
     const b=this.buf;this.an.getFloatTimeDomainData(b);
     const n=b.length,sr=this.ctx.sampleRate;
     let sum=0;for(let i=0;i<n;i++)sum+=b[i]*b[i];
-    const rms=Math.sqrt(sum/n),out={note:-1,f:0,cl:0,rms:rms,cents:0};
-    if(rms<0.012)return out;
+    const rms=Math.sqrt(sum/n),out={note:-1,f:0,raw:0,cl:0,rms:rms,cents:0};
+    if(rms<GATE)return out;
     const minLag=Math.max(2,Math.floor(sr/2200)),maxLag=Math.min(n-2,Math.floor(sr/180));
     const ns=new Float32Array(maxLag+2);
     for(let lag=minLag-1;lag<=maxLag+1;lag++){let acf=0,m=0;for(let i=0;i<n-lag;i++){const a=b[i],c=b[i+lag];acf+=a*c;m+=a*a+c*c;}ns[lag]=m>0?2*acf/m:0;}
@@ -666,7 +669,7 @@ const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:
     let ch=-1;for(const p of peaks){if(ns[p]>=0.9*high){ch=p;break;}}
     if(ch<=minLag||ch>=maxLag)return out;
     const a=ns[ch-1],bb=ns[ch],c2=ns[ch+1],den=a-2*bb+c2,sh=den!==0?(a-c2)/(2*den):0;
-    out.f=sr/(ch+sh);out.cl=ns[ch];
+    out.raw=sr/(ch+sh);out.f=out.raw/Math.pow(2,this.off/1200);out.cl=ns[ch];
     let bi=-1,bc=1e9;
     NOTES.forEach((nt,i)=>{const c=Math.abs(1200*Math.log2(out.f/nt.f));if(c<bc){bc=c;bi=i;}});
     out.cents=bc;
@@ -679,26 +682,48 @@ const Mic={on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:
     el.hidden=!this.on;
     const lv='▮'.repeat(Math.min(8,Math.round(d.rms*80)))||'·';
     let t='🎤 '+lv;
-    if(d.f&&d.rms>=0.012){
-      t+='  '+Math.round(d.f)+' Hz';
+    if(d.f&&d.rms>=GATE){
+      t+='  '+Math.round(d.raw)+' Hz';
       if(d.note>=0)t+='  → '+NOTES[d.note].n;
       else if(d.cl<0.85)t+='  （聲音不夠穩）';
       else t+='  （不在 Do～高Do，差 '+Math.round(d.cents)+' 音分）';
-    }else if(d.rms<0.012)t+='  聲音太小';
+    }else if(d.rms<GATE)t+='  聲音太小';
+    if(this.cal)t='🎤 校準中：請吹 Do（1）　'+Math.round(d.raw||0)+' Hz';
+    else if(this.off)t+='  ［已校準 '+(this.off>0?'+':'')+Math.round(this.off)+']';
     if(busy)t+='  遊戲發聲中';
     el.textContent=t;
+  },
+  calibrate(){
+    if(!this.on){toast('請先按「🎤 收音」開啟收音');return;}
+    this.release();this.cand=-1;this.cn=0;
+    this.cal={fs:[],t0:performance.now()};
+    toast('校準：請用你的陶笛吹 Do（1），穩穩吹約 2 秒');
+  },
+  calTick(d){
+    const c=this.cal;
+    if(d.raw&&d.cl>=0.85&&d.rms>=GATE)c.fs.push(d.raw);
+    if(performance.now()-c.t0<3500)return;
+    this.cal=null;
+    if(c.fs.length<10){toast('聽不清楚，請靠近麥克風、穩穩吹 Do 再按一次「校準」');return;}
+    const s=c.fs.slice().sort((a,b)=>a-b),med=s[Math.floor(s.length/2)];
+    const cents=1200*Math.log2(med/523.25);
+    if(Math.abs(cents)>1500){toast('這個音離 Do 太遠（'+Math.round(med)+' Hz），請確認吹的是 Do（1）');return;}
+    this.off=cents;
+    try{localStorage.setItem('ocarina_mic_off',String(cents));}catch(e){}
+    toast('校準完成：你的 Do 是 '+Math.round(med)+' Hz，已記住');
   },
   tick(){
     if(!this.on)return;
     const busy=Snd.busy();   // 遊戲自己在發聲時先不聽，避免把喇叭的聲音當成吹奏
     const d=this.detect();
     this.show(d,busy);
+    if(this.cal){this.calTick(d);return;}
     if(busy)return;
     const n=d.note;
     if(n>=0){
       this.qn=0;if(n===this.cur)return;
       if(n===this.cand)this.cn++;else{this.cand=n;this.cn=1;}
-      if(this.cn>=3){if(this.cur>=0)this.release();this.cur=n;this.press(n);}
+      if(this.cn>=2){if(this.cur>=0)this.release();this.cur=n;this.press(n);}
     }else{
       this.cand=-1;this.cn=0;
       if(this.cur>=0){this.qn++;if(this.qn>=4)this.release();}
@@ -709,6 +734,7 @@ function micUi(){
   const b=document.getElementById('micBtn'),s=document.getElementById('micS');
   if(b){b.textContent=Mic.on?'🎤 收音中':'🎤 收音';b.setAttribute('aria-pressed',Mic.on?'true':'false');}
   if(s){s.classList.toggle('demo',Mic.on);s.textContent=Mic.on?'🎤 開':'🎤';}
+  const cb=document.getElementById('micCal');if(cb)cb.hidden=!Mic.on;
 }
 function toast(t){
   Track.msg(t);
@@ -727,6 +753,7 @@ async function toggleMic(){
 }
 document.getElementById('micBtn').addEventListener('click',toggleMic);
 document.getElementById('micS').addEventListener('click',toggleMic);
+document.getElementById('micCal').addEventListener('click',()=>Mic.calibrate());
 micUi();
 
 /* ---------- 主選單 ---------- */
@@ -958,7 +985,7 @@ GAMES.push({id:'fall',name:'旋律瀑布',tag:'節奏 · 音階',color:'#ff9a3c'
   };
   function judge(n,dt){
     const a=Math.abs(dt);
-    if(a<=.1){n.state=1;perf++;score+=100+Math.min(combo,20)*5;fb.push({t:'完美',c:'#6fe08a',x:n.deg,a:1});}
+    if(a<=(Mic.fromMic?.16:.1)){n.state=1;perf++;score+=100+Math.min(combo,20)*5;fb.push({t:'完美',c:'#6fe08a',x:n.deg,a:1});}
     else{n.state=2;good++;score+=60+Math.min(combo,20)*3;fb.push({t:dt<0?'偏快':'偏慢',c:'#ffd23f',x:n.deg,a:1});}
     combo++;best=Math.max(best,combo);
     api.score(String(score));
@@ -966,13 +993,14 @@ GAMES.push({id:'fall',name:'旋律瀑布',tag:'節奏 · 音階',color:'#ff9a3c'
   g.down=function(i){
     lit[i]=1;
     let hit=null,bd=9;
+    const T=time-(Mic.fromMic?Mic.lat:0),WD=Mic.fromMic?.4:.24;   // 麥克風收音會慢一點點，往回補
     for(const n of notes){
       if(n.state!==0||n.deg!==i)continue;
-      const d=Math.abs(n.t-time);
-      if(d<.24&&d<bd){hit=n;bd=d;}
+      const d=Math.abs(n.t-T);
+      if(d<WD&&d<bd){hit=n;bd=d;}
     }
     if(hit){
-      judge(hit,time-hit.t);
+      judge(hit,T-hit.t);
       api.tone(i,Math.min(hit.dur*.95,1.6));
     }else{
       // 吹錯音：輕輕提示，不扣分，只中斷連擊
