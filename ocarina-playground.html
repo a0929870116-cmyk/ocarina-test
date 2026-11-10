@@ -989,14 +989,14 @@ function genPhrase(n){
   return seq;
 }
 GAMES.push({id:'fall',name:'旋律瀑布',tag:'節奏 · 音階',color:'#ff9a3c',
- pitch:'彩色音符從天上落下，落到線上的瞬間吹出那個音，整首歌就是你吹出來的。',
- why:'練的是：音階指法、拍子準不準。每次還有「隨機新樂句」，不會一直吹同一首。',
+ pitch:'彩色音符從天上落下，落到線上的瞬間按下那個音鍵，跟著節拍器把整首歌「拍」出來。這款練的是拍子，不用吹奏。',
+ why:'練的是：音階指法、拍子準不準，速度已調慢好跟上節拍器。每次還有「隨機新樂句」，不會一直練同一首。想練吹奏請玩「跟著吹」。',
  make(api){
   const g={options:[
     {label:'曲目',choices:SONGS.map(s=>[s.name]).concat([['🎲 隨機新樂句']]),val:0},
-    {label:'速度',choices:[['慢'],['中'],['快']],val:1}
+    {label:'速度（節拍器 BPM）',choices:[['慢 60'],['中 75'],['快 90']],val:1}
   ],state:'intro'};
-  const FALL=2.1,BPM=[60,90,115];
+  const FALL=2.1,BPM=[60,75,90];
   let notes,time,combo,best,score,perf,good,miss,lit,fb,endAt,title,rel,demoI;
   g.reset=function(){
     const so=this.options[0].val,bpm=BPM[this.options[1].val],bd=60/bpm;
@@ -1814,8 +1814,8 @@ function drawRhythmRow(c,pat,xOf,y,colFn,sc,N){
     c.restore();
   }
 }
-GAMES.push({id:'rhythm',name:'節奏鼓手',tag:'節奏 · 拍點',color:'#ff7a59',
- pitch:'兩種玩法：先聽一小節節奏再拍回來（可選 4/4、2/4、3/4 拍，每一拍是一格）；或聽節奏，從三張節奏譜裡選出對的那一張。',
+GAMES.push({id:'rhythm',name:'節奏鼓手',tag:'節奏 · 拍點',color:'#ff7a59',hideFing:true,
+ pitch:'單獨練節奏，不用管音高、也不用吹奏：按下方任何一個鍵來拍。兩種玩法：先聽一小節節奏再拍回來（可選 4/4、2/4、3/4 拍，每一拍是一格）；或聽節奏，從三張節奏譜裡選出對的那一張。',
  why:'練的是：節奏感與拍點（四分 ♩、八分 ♪、二分音符），也練「聽節奏 → 認出譜」。全程有節拍器，前 4 拍是預備拍。',
  make(api){
   const g={options:[
