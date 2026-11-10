@@ -60,9 +60,9 @@ ul.errs li b{font-weight:800}
   <div class="card warn" id="inapp" hidden>⚠️ 看起來在 LINE／臉書／IG 的內建瀏覽器，常常擋麥克風。請點右上角「⋯」→ 用 Safari／Chrome 開啟。</div>
 
   <section class="card" id="taskCard">
-    <div class="task">本週任務：練習基本指法 20 次</div>
+    <div class="task">本週任務：基本指法 1-1 正確吹奏 20 次</div>
     <div class="bar"><i id="barFill"></i></div>
-    <div class="stat"><span id="doneTxt">已練習 0／20 次</span><span id="perfTxt">全對 0 次</span></div>
+    <div class="stat"><span id="doneTxt">正確 0／20 次</span><span id="perfTxt">總共吹了 0 次</span></div>
     <div id="doneMsg" class="verdict" style="color:var(--green);margin-top:8px" hidden>🎉 本週任務完成！</div>
   </section>
 
@@ -87,8 +87,8 @@ ul.errs li b{font-weight:800}
     <div class="row"><label for="bpm">速度</label>
       <select id="bpm"><option value="50">♩=50（慢）</option><option value="60" selected>♩=60（標準）</option><option value="72">♩=72（稍快）</option></select></div>
     <div class="row"><label for="tol">音準容許</label>
-      <select id="tol"><option value="15">±15 音分（嚴）</option><option value="25" selected>±25 音分</option><option value="40">±40 音分（鬆）</option></select></div>
-    <p class="hint">按下後先聽 4 拍預備拍，第 5 拍開始照譜吹，每音一拍（最後的音兩拍）。建議戴耳機，節拍聲才不會被麥克風收進去。</p>
+      <select id="tol"><option value="10" selected>±10 音分</option><option value="15">±15 音分</option><option value="25">±25 音分（鬆）</option></select></div>
+    <p class="hint">按下後先聽 4 拍預備拍，第 5 拍開始照譜吹，每音一拍（最後的音兩拍）。音準、節拍都對，才算一次「正確」，正確次數會累計。建議戴耳機，節拍聲才不會被麥克風收進去。</p>
     <div class="err" id="errMsg" hidden></div>
   </section>
 
@@ -118,7 +118,7 @@ const NOTES=[];
   const last=(bi===5&&k===2);const dur=last?2:1;
   NOTES.push({i:NOTES.length,midi:m,beat,dur,bar:bi,beatInBar:k});beat+=dur;}));})();
 const TOTAL_BEATS=24, COUNT_IN=4;
-const HINT_SOFT={bar:3,beatInBar:1}; // 第 4 小節第 2 音下方標「輕吹」（與原譜相同位置）
+const HINT_SOFT={bar:5,beatInBar:1}; // 低音 7（點在下方）的下面標「輕吹」
 
 const PCNUM={0:'1',2:'2',4:'3',5:'4',7:'5',9:'6',11:'7'};
 function jpName(m){
@@ -187,11 +187,11 @@ function drawScore(){
   });
   const hn=NOTES.find(n=>n.bar===HINT_SOFT.bar&&n.beatInBar===HINT_SOFT.beatInBar);
   window.__hintRow={x:hn.x,y:hn.bottom};
-  svg.setAttribute('viewBox',`0 0 ${W} ${3*ROW_H+6}`);
+  svg.setAttribute('viewBox',`0 0 ${W} ${3*ROW_H+44}`);
 }
 drawScore();
 // 「輕吹」提示放在譜下方獨立一行（避免與狀態標記重疊）
-(function(){const h=window.__hintRow;const svg=$('score');const t=el('text',{x:h.x,y:h.y+56,'font-size':10,'text-anchor':'middle',fill:'var(--ink-2)'},svg,'（輕吹）');t.setAttribute('data-soft','1');})();
+(function(){const h=window.__hintRow;const svg=$('score');const t=el('text',{x:h.x,y:h.y+76,'font-size':10,'text-anchor':'middle',fill:'var(--ink-2)'},svg,'（輕吹）');t.setAttribute('data-soft','1');})();
 
 function paintNote(n,color,badgeTxt){
   n.head.setAttribute('stroke',color);
@@ -320,11 +320,11 @@ let P={done:0,perfect:0};
 try{const o=JSON.parse(localStorage.getItem(KEY)||'null');if(o&&typeof o.done==='number')P=o;}catch(e){}
 function saveP(){try{localStorage.setItem(KEY,JSON.stringify(P));}catch(e){}}
 function renderP(){
-  const d=Math.min(P.done,GOAL);
+  const d=Math.min(P.perfect,GOAL);
   $('barFill').style.width=(d/GOAL*100)+'%';
-  $('doneTxt').textContent='已練習 '+d+'／'+GOAL+' 次';
-  $('perfTxt').textContent='全對 '+P.perfect+' 次';
-  $('doneMsg').hidden=P.done<GOAL;
+  $('doneTxt').textContent='正確 '+d+'／'+GOAL+' 次';
+  $('perfTxt').textContent='總共吹了 '+P.done+' 次';
+  $('doneMsg').hidden=P.perfect<GOAL;$('doneMsg').textContent='🎉 本週任務完成！（已累計正確 '+P.perfect+' 次）';
 }
 renderP();
 
@@ -458,8 +458,10 @@ function showResult(res){
     v.textContent='好像沒吹完，這次不算次數。請確認有收到聲音再試一次。';v.style.color='var(--ruby)';
   }else{
     P.done++;if(s.perfect)P.perfect++;saveP();renderP();
-    if(s.perfect){v.textContent='太棒了！全部都對 🌟';v.style.color='var(--green)';}
-    else{v.textContent='完成一次！下面是可以再改進的地方';v.style.color='var(--ink)';}
+    if(s.perfect){
+      v.textContent=P.perfect===GOAL?'🎉 恭喜完成本週任務！正確 '+GOAL+' 次達成':'全部都對！累計正確 '+P.perfect+' 次 🌟';
+      v.style.color='var(--green)';
+    }else{v.textContent='這次還沒全對，不計入正確次數。看看下面哪裡要改';v.style.color='var(--ink)';}
   }
   const off=$('offTxt');
   if(s.counted&&Math.abs(s.offset)>=0.12)off.textContent='整體來看，你的拍子平均'+(s.offset>0?'偏晚':'偏早')+'約 '+Math.abs(s.offset).toFixed(1)+' 拍。';
