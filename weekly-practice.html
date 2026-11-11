@@ -59,6 +59,7 @@ ul.errs li b{font-weight:800}
 </style>
 <script src="sfx.js"></script>
 <script src="wk-core.js"></script>
+<script src="feedback.js"></script>
 <script>if(window.Sfx){Sfx.auto('.back','nav');Sfx.auto('.btn:not(#goBtn):not(#stopBtn)','tap');}</script>
 </head>
 <body>
@@ -112,6 +113,7 @@ ul.errs li b{font-weight:800}
       <div><b id="sErr">–</b><span>要改的音</span></div>
     </div>
     <div class="hint" id="offTxt" style="margin:0 0 8px"></div>
+    <div class="hint" id="fbTxt" style="margin:0 0 8px" hidden></div>
     <ul class="errs" id="errList"></ul>
   </section>
 </div>
@@ -461,7 +463,7 @@ function loop(){
       detected=true;
       const m=69+12*Math.log2(p.freq/440);
       r.hist.push(m);if(r.hist.length>3)r.hist.shift();
-      if(r.hist.length>=3){r.frames.push({t:ft,m:median(r.hist)});voiced=true;}
+      if(r.hist.length>=3){r.frames.push({t:ft,m:median(r.hist),v:rms});voiced=true;}
     }
   }
   if(!detected&&!nearClick)r.hist=[];
@@ -478,14 +480,14 @@ function finish(){
   window.Sfx&&Sfx.mic(false);
   r.done=true;killClicks(r);cancelAnimationFrame(raf);run=null;
   const res=judge(r.frames,r.S,r.beat,r.outLat,r.tol);
-  showResult(res);
+  showResult(res,r);
   $('liveBox').hidden=true;$('stopBtn').hidden=true;$('goBtn').hidden=false;$('bpm').disabled=false;$('tol').disabled=false;
   notifyParent(false);
 }
 
 /* ========== 結果顯示 ========== */
 let lastRes=null;
-function showResult(res){
+function showResult(res,r){
   lastRes=res;
   const s=summarize(res);
   NOTES.forEach((n,i)=>{paintNote(n,colorOf(res[i]),badgeOf(res[i]));n.hl.setAttribute('opacity',0);});
@@ -509,6 +511,9 @@ function showResult(res){
   const off=$('offTxt');
   if(s.counted&&Math.abs(s.offset)>=0.12)off.textContent='整體來看，你的拍子平均'+(s.offset>0?'偏晚':'偏早')+'約 '+Math.abs(s.offset).toFixed(1)+' 拍。';
   else off.textContent='';
+  const fb=$('fbTxt');let fbt='';
+  try{if(s.counted&&r&&window.OLM_FB)fbt=OLM_FB.longNoteFeedback(r.frames,NOTES,r.S,r.beat,r.outLat);}catch(e){}
+  fb.hidden=!fbt;fb.textContent=fbt?'🎵 吹奏小回饋：'+fbt:'';
   const ul=$('errList');ul.innerHTML='';
   if(!s.bad.length){const li=document.createElement('li');li.textContent='沒有要改的地方，繼續保持！';ul.appendChild(li);}
   s.bad.forEach(r=>{
