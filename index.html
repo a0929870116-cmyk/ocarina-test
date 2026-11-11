@@ -226,6 +226,20 @@ form{display:flex;flex-direction:column;gap:10px}
 [hidden]{display:none!important}
 .pv,.pvtodo{display:none!important}
 #gamefr{position:fixed;inset:0;width:100%;height:100%;border:0;z-index:20;background:var(--vellum)}
+/* 電腦版序章：書頁加寬、圖片高度可縮、文字不被壓縮（手機寬度不受影響） */
+@media (min-width:700px){
+  .app.story-mode{max-width:780px}
+  .app.story-mode .leaf{padding:20px 44px 14px 54px}
+  .app.story-mode .leaf figure,.app.story-mode .leaf.two figure{aspect-ratio:auto;flex:1 1 220px;min-height:130px;max-height:440px}
+  .app.story-mode .leaf .txt{flex:none;padding:0 14px}
+  .app.story-mode .leaf .txt p{font-size:18px;line-height:1.95;letter-spacing:.06em}
+  .app.story-mode .leaf.two .txt p{font-size:17px;line-height:1.85}
+}
+@media (min-width:700px) and (max-height:700px){
+  .app.story-mode .leaf{gap:6px;padding-top:12px}
+  .app.story-mode .leaf .lorn,.app.story-mode .leaf .len{display:none}
+  .app.story-mode .leaf h2{font-size:20px}
+}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
