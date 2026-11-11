@@ -58,6 +58,7 @@ ul.errs li b{font-weight:800}
 [hidden]{display:none!important}
 </style>
 <script src="sfx.js"></script>
+<script src="wk-core.js"></script>
 <script>if(window.Sfx){Sfx.auto('.back','nav');Sfx.auto('.btn:not(#goBtn):not(#stopBtn)','tap');}</script>
 </head>
 <body>
@@ -325,87 +326,25 @@ function badgeOf(r){
   return s;
 }
 
-/* ========== 進度（存在手機本機）＋星星糖分配（11/11 第 1 步） ==========
-   每週預算 BUDGET 顆（兩週＝罐 40 顆＝一座島）；任務份額 Q＝預算×權重÷權重總和；
-   每次全對累積 Q÷T 顆，滿一整顆才加進星星罐；完成度上限 1，不會超過預算；週一 00:00（台北）重置，沒拿到的不補發。
-   存檔 olm_wk_v2；舊 olm_weekly_v1（{done,perfect}）第一次讀到時搬進來，已累計的次數視為已給過星星糖，不重複發。 */
-/* 任務清單：每人 1～5 個，各自的目標次數 T 與權重可不同（之後由 Firebase 後台指定；現在先寫在程式裡）。
-   例：[{id:'basic-1-1',name:'基本指法 1-1',weight:1,T:20}] 或 3 個任務 T 各異。每週預算固定 20 顆，依「各任務完成進度」比例發放。 */
-const TASKS=[{id:'basic-1-1',name:'基本指法 1-1',weight:1,T:20}];
-const TASK_ID=(new URLSearchParams(location.search).get('task'))||'basic-1-1',BUDGET=20,NEED_STAR=40,WK='olm_wk_v2';
-const ELEM_EVERY=2,ELEM_CAP=10;   /* 元素掉落（第 2 步，數值待使用者確認）：超過目標的全對，每 ELEM_EVERY 次掉 1 個，每週上限 ELEM_CAP；先只記數量 */
-const TASK=TASKS.find(t=>t.id===TASK_ID)||TASKS[0],GOAL=TASK.T;
-const WSUM=TASKS.reduce((a,t)=>a+t.weight,0),qOf=t=>BUDGET*t.weight/WSUM;
-/* 週界：從這位學生開始的那天起算，每 7 天一週（台北時間 UTC+8），兩週一座島 */
-function todayKey(){return new Date(Date.now()+8*3600e3).toISOString().slice(0,10);}
-function weekIdx(start){return Math.max(0,Math.floor((Date.parse(todayKey()+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/864e5/7));}
-function earned(o){let x=0;TASKS.forEach(t=>{x+=Math.min((o.tasks[t.id]||0)/t.T,1)*qOf(t);});return Math.floor(x+1e-9);}
-function overflow(o){let x=0;TASKS.forEach(t=>{x+=Math.max(0,(o.tasks[t.id]||0)-t.T);});return x;}
-function elemEarned(o){return Math.min(ELEM_CAP,Math.floor(overflow(o)/ELEM_EVERY));}
-function loadWK(){
-  let o=null;try{o=JSON.parse(localStorage.getItem(WK)||'null');}catch(e){}
-  let prev=0;
-  if(!o||o.v!==2){
-    let old=null;try{old=JSON.parse(localStorage.getItem('olm_weekly_v1')||'null');}catch(e){}
-    o={v:2,start:todayKey(),week:0,played:(old&&old.done|0)||0,total:(old&&old.perfect|0)||0,tasks:{},given:0};
-    TASKS.forEach(t=>{o.tasks[t.id]=0;});
-    if(old&&old.perfect)o.tasks[TASKS[0].id]=old.perfect|0;
-    o.given=earned(o);o.elem=elemEarned(o);o.bag=0;
-  }else{
-    if(typeof o.week==='string'){o.start=o.week;o.week=0;}   /* 08:50 版（週一起算）的存檔：該週一當作開始日 */
-    if(!o.start)o.start=todayKey();
-    prev=o.week|0;
-  }
-  const idx=weekIdx(o.start);
-  if(prev!==idx){o.tasks={};o.given=0;o.elem=0;}
-  o.week=idx;
-  TASKS.forEach(t=>{if(typeof o.tasks[t.id]!=='number')o.tasks[t.id]=0;});
-  if(typeof o.bag!=='number')o.bag=0;
-  if(typeof o.elem!=='number')o.elem=elemEarned(o);   /* 舊存檔沒有元素欄位：以目前超過次數補算，不回頭多發 */
-  try{localStorage.setItem(WK,JSON.stringify(o));}catch(e){}
-  return o;
-}
-let P=loadWK();
-function saveP(){try{localStorage.setItem(WK,JSON.stringify(P));}catch(e){}}
-/* 元素種類（第 3 步）：每島一種，依「目前練習的島」掉落。目前的島存在飛船存檔 olm_ship_v1 的 isle（預設 4，測試版不真的開島）；要和 ship-workshop.html 的元素順序一致 */
-const ISLE_ELEM=[['stardust','星塵'],['moonwater','月光水'],['rainbow','彩虹絲'],['cloud','雲絮'],['glowdew','螢光露'],['lantern','燈籠火'],['core','星核砂'],['seaglass','海玻璃'],['note','音符晶'],['aurora','極光冰'],['peak','星峰石'],['ruby','城堡紅玉']];
-function addTypedElem(n){
-  const o=JSON.parse(localStorage.getItem('olm_ship_v1')||'null')||{};
-  const isle=(o.isle>=1&&o.isle<=12)?o.isle:4,e=ISLE_ELEM[isle-1];
-  o.el=o.el||{};o.el[e[0]]=(o.el[e[0]]|0)+n;o.isle=isle;
-  localStorage.setItem('olm_ship_v1',JSON.stringify(o));
-  return e[1];
-}
-/* 全對一次：記次數、算本週該拿幾顆、把新增的加進遊戲頁存檔（olm_test_v1 的 jar，上限 40）。回傳畫面提示 */
-function recordPerfect(){try{
-  P.tasks[TASK_ID]++;P.total=(P.total|0)+1;
-  const delta=earned(P)-P.given;
-  const o=JSON.parse(localStorage.getItem('olm_test_v1')||'null')||{succ:12,jar:9};
-  o.succ=(o.succ|0)+1;
-  if(delta>0){P.given+=delta;o.jar=Math.min(NEED_STAR,(o.jar|0)+delta);}
-  const ed=elemEarned(P)-P.elem;
-  let ename='';
-  if(ed>0){P.elem+=ed;P.bag=(P.bag|0)+ed;ename=addTypedElem(ed);}
-  localStorage.setItem('olm_test_v1',JSON.stringify(o));
-  const full=(o.jar|0)>=NEED_STAR;
-  const em=' 本週元素 '+P.elem+'／'+ELEM_CAP;
-  if(ed>0)return '（獲得「'+ename+'」×'+ed+'！'+em+(delta>0?'，另 +'+delta+' 星星糖':'')+'）';
-  if(delta>0)return '（+'+delta+' 星星糖，本週已拿 '+P.given+'／'+BUDGET+(full?'，星星罐滿了':'')+'）';
-  if(overflow(P)>0){
-    if(P.elem>=ELEM_CAP)return '（本週元素拿滿了（'+ELEM_CAP+' 個），次數照算）';
-    return '（星星糖本週拿滿了；再 '+(ELEM_EVERY-overflow(P)%ELEM_EVERY)+' 次全對掉 1 個元素，'+em.trim()+'）';
-  }
-  if(P.tasks[TASK_ID]>=TASK.T)return '（這個任務的星星糖本週拿滿了，次數照算）';
-  return '（本週星星糖 '+P.given+'／'+BUDGET+'）';
-}catch(e){return '';}}
+/* ========== 進度（存在手機本機）＋星星糖分配：共用 wk-core.js ==========
+   任務清單、權重（三個以內相同、超過三個遞減）、星星糖預算 20、元素掉落、週界、存檔 olm_wk_v2 都在 wk-core.js。
+   本頁用網址 ?task=任務id 指定是哪個任務（預設基本指法 1-1）。 */
+const Core=window.OLM_WK;
+const TASKS=Core.TASKS,BUDGET=Core.BUDGET,ELEM_CAP=Core.ELEM_CAP,ELEM_EVERY=Core.ELEM_EVERY;
+const TASK_ID=(new URLSearchParams(location.search).get('task'))||'basic-1-1';
+const TASK=Core.taskById(TASK_ID)||TASKS[0],GOAL=TASK.T;
+let P=Core.P;
+function saveP(){Core.save();}
+function recordPerfect(){return Core.recordPerfect(TASK.id);}
 function renderP(){
-  const n=P.tasks[TASK_ID],d=Math.min(n,GOAL);
+  P=Core.P;
+  const n=P.tasks[TASK.id],d=Math.min(n,GOAL);
   $('barFill').style.width=(d/GOAL*100)+'%';
   $('doneTxt').textContent='正確 '+d+'／'+GOAL+' 次';
   $('perfTxt').textContent='總共吹了 '+P.played+' 次　第 '+(P.week+1)+' 週星星糖 '+P.given+'／'+BUDGET+'　本週元素 '+P.elem+'／'+ELEM_CAP;
   $('doneMsg').hidden=n<GOAL;$('doneMsg').textContent='🎉 本週任務完成！（本週正確 '+n+' 次）';
 }
-window.__star={recordPerfect,saveP,earned,elemEarned,overflow,todayKey,weekIdx,loadWK,TASKS,get P(){return P;}};   /* 測試用 */
+window.__star={recordPerfect,saveP,earned:Core.earned,elemEarned:Core.elemEarned,overflow:Core.overflow,todayKey:Core.todayKey,weekIdx:Core.weekIdx,loadWK:Core.reload,TASKS,Core,get P(){return Core.P;}};   /* 測試用 */
 renderP();
 
 /* ========== 收音與節拍 ========== */
@@ -561,9 +500,9 @@ function showResult(res){
     v.textContent='好像沒吹完，這次不算次數。請確認有收到聲音再試一次。';v.style.color='var(--ruby)';
   }else{
     try{window.Sfx&&(s.perfect?Sfx.ok():Sfx.bad());}catch(e){}
-    P.played=(P.played|0)+1;let starMsg='';if(s.perfect){starMsg=recordPerfect();}saveP();renderP();
+    Core.recordPlayed();let starMsg='';if(s.perfect){starMsg=recordPerfect();}saveP();renderP();
     if(s.perfect){
-      v.textContent=(P.tasks[TASK_ID]===GOAL?'🎉 恭喜完成本週任務！正確 '+GOAL+' 次達成':'全部都對！本週這個任務正確 '+P.tasks[TASK_ID]+' 次 🌟')+starMsg;
+      v.textContent=(P.tasks[TASK.id]===GOAL?'🎉 恭喜完成本週任務！正確 '+GOAL+' 次達成':'全部都對！本週這個任務正確 '+P.tasks[TASK.id]+' 次 🌟')+starMsg;
       v.style.color='var(--green)';
     }else{v.textContent='這次還沒全對，不計入正確次數。看看下面哪裡要改';v.style.color='var(--ink)';}
   }

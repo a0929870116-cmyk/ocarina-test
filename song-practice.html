@@ -63,20 +63,23 @@ ul.errs li b{font-weight:800}
 [hidden]{display:none!important}
 </style>
 <script src="sfx.js"></script>
+<script src="wk-core.js"></script>
 <script>if(window.Sfx){Sfx.auto('.back','nav');Sfx.auto('.btn:not(#goBtn):not(#stopBtn):not(#demoBtn)','tap');}</script>
 </head>
 <body>
 <div class="wrap">
   <button class="back" id="back">← 返回</button>
-  <h1>分段練習（原型）</h1>
+  <h1 id="pageTitle">分段練習（原型）</h1>
 
   <div class="card warn" id="inapp" hidden>⚠️ 看起來在 LINE／臉書／IG 的內建瀏覽器，常常擋麥克風。請點右上角「⋯」→ 用 Safari／Chrome 開啟。</div>
-  <div class="card warn" style="font-size:13px">原型版：正確次數只存在這支手機，<b>不計星星糖、不掉晶體</b>，只用來測試判分。</div>
+  <div class="card warn" id="protoNote" style="font-size:13px">原型版：正確次數只存在這支手機，<b>不計星星糖、不掉晶體</b>，只用來測試判分。</div>
+  <div class="card warn" id="mockNote" style="font-size:13px" hidden>這是測試版的模擬任務：歌曲與小節範圍是暫時假資料，正式內容由老師指定。</div>
 
   <section class="card" id="taskCard">
     <div class="task" id="taskName">—</div>
     <div class="bar"><i id="barFill"></i></div>
     <div class="stat"><span id="doneTxt">正確 0／20 次</span><span id="perfTxt">這段總共吹了 0 次</span></div>
+    <div id="doneMsg" class="verdict" style="color:var(--green);margin-top:8px" hidden>🎉 本週任務完成！</div>
   </section>
 
   <section class="card">
@@ -99,9 +102,9 @@ ul.errs li b{font-weight:800}
   <section class="card" id="ctlCard">
     <div class="btnrow"><button class="btn" id="goBtn">🎤 開始吹奏</button><button class="btn alt" id="demoBtn">🔊 聽示範</button></div>
     <button class="btn alt" id="stopBtn" hidden style="margin-top:8px">⏹ 中途停止（這次不算）</button>
-    <div class="row"><label for="song">曲子</label><select id="song"></select></div>
-    <div class="row"><label for="preset">範圍</label><select id="preset"></select></div>
-    <div class="row"><label for="from">小節</label>
+    <div class="row" id="rowSong"><label for="song">曲子</label><select id="song"></select></div>
+    <div class="row" id="rowPreset"><label for="preset">範圍</label><select id="preset"></select></div>
+    <div class="row" id="rowRange"><label for="from">小節</label>
       <input id="from" type="number" inputmode="numeric" min="1" style="width:70px;font:inherit;font-size:16px;padding:6px;border:2px solid var(--ink-2);border-radius:10px">
       <span>到</span>
       <input id="to" type="number" inputmode="numeric" min="1" style="width:70px;font:inherit;font-size:16px;padding:6px;border:2px solid var(--ink-2);border-radius:10px">
@@ -133,7 +136,12 @@ ul.errs li b{font-weight:800}
 const $=id=>document.getElementById(id);
 const {SONGS,build}=window.OLM_SONGS;
 const SVGNS='http://www.w3.org/2000/svg';
-const COUNT_IN=4,GOAL=20,MAX_BARS=16,STORE='olm_song_proto_v1';
+const COUNT_IN=4,MAX_BARS=16,STORE='olm_song_proto_v1';
+/* 任務模式：網址 ?task=任務id（由遊戲練習分頁的「本週任務」清單點進來）。曲子與小節範圍由任務指定、不可改；
+   次數、星星糖、晶體都走共用的 wk-core.js（olm_wk_v2）。沒有 ?task= 時是舊的原型模式（只存 olm_song_proto_v1，不計星星糖，供開發測試）。 */
+const Core=window.OLM_WK;
+const TASK=(function(){const id=new URLSearchParams(location.search).get('task');const t=id&&Core.taskById(id);return t&&t.type==='song'?t:null;})();
+const GOAL=TASK?TASK.T:20;
 
 /* ========== 名稱與簡譜 ========== */
 const PCN={0:'1',1:'♯1',2:'2',3:'♯2',4:'3',5:'4',6:'♯4',7:'5',8:'♯5',9:'6',10:'♭7',11:'7'};
@@ -511,17 +519,27 @@ function showGauge(diff,nr){
 function setLive(c,l){$('count').textContent=c;$('live').textContent=l||' ';}
 
 /* ========== 曲目、範圍與進度（原型：只存手機，不計星星糖與晶體） ========== */
-let cfg={song:'star',from:1,to:8};
+let cfg=TASK?{song:TASK.song,from:TASK.from,to:TASK.to}:{song:'star',from:1,to:8};
 function taskKey(){return cfg.song+':'+cfg.from+'-'+cfg.to;}
 function loadP(){let o=null;try{o=JSON.parse(localStorage.getItem(STORE)||'null');}catch(e){}if(!o||typeof o!=='object')o={tasks:{},played:{}};o.tasks=o.tasks||{};o.played=o.played||{};return o;}
 let P=loadP();
 function saveP(){try{localStorage.setItem(STORE,JSON.stringify(P));}catch(e){}}
 function renderP(){
-  const k=taskKey(),n=P.tasks[k]|0,d=Math.min(n,GOAL);
-  $('taskName').textContent=R.song.title+'　第 '+cfg.from+'–'+cfg.to+' 小節';
-  $('barFill').style.width=(d/GOAL*100)+'%';
-  $('doneTxt').textContent='正確 '+d+'／'+GOAL+' 次'+(n>GOAL?'（共 '+n+'）':'');
-  $('perfTxt').textContent='這段總共吹了 '+(P.played[k]|0)+' 次';
+  const k=taskKey();
+  if(TASK){
+    const W=Core.P,n=W.tasks[TASK.id]|0,d=Math.min(n,GOAL);
+    $('taskName').textContent='本週任務：'+TASK.name+'　第 '+cfg.from+'–'+cfg.to+' 小節';
+    $('barFill').style.width=(d/GOAL*100)+'%';
+    $('doneTxt').textContent='正確 '+d+'／'+GOAL+' 次'+(n>GOAL?'（共 '+n+'）':'');
+    $('perfTxt').textContent='總共吹了 '+W.played+' 次　第 '+(W.week+1)+' 週星星糖 '+W.given+'／'+Core.BUDGET+'　本週元素 '+W.elem+'／'+Core.ELEM_CAP;
+    $('doneMsg').hidden=n<GOAL;$('doneMsg').textContent='🎉 本週任務完成！（本週正確 '+n+' 次）';
+  }else{
+    const n=P.tasks[k]|0,d=Math.min(n,GOAL);
+    $('taskName').textContent=R.song.title+'　第 '+cfg.from+'–'+cfg.to+' 小節';
+    $('barFill').style.width=(d/GOAL*100)+'%';
+    $('doneTxt').textContent='正確 '+d+'／'+GOAL+' 次'+(n>GOAL?'（共 '+n+'）':'');
+    $('perfTxt').textContent='這段總共吹了 '+(P.played[k]|0)+' 次';
+  }
   $('scoreTitle').firstChild.textContent=R.song.title+'　';
   $('scoreSub').textContent=R.song.ts[0]+'/'+R.song.ts[1]+' 拍・1=C・第 '+cfg.from+'–'+cfg.to+' 小節';
 }
@@ -722,10 +740,19 @@ function showResult(res){
     v.textContent='好像沒吹完，這次不算次數。請確認有收到聲音再試一次。';v.style.color='var(--ruby)';
   }else{
     try{window.Sfx&&(s.perfect?Sfx.ok():Sfx.bad());}catch(e){}
+    if(TASK){
+      Core.recordPlayed();
+      if(s.perfect){
+        const msg=Core.recordPerfect(TASK.id),n=Core.P.tasks[TASK.id];
+        v.textContent=(n===GOAL?'🎉 恭喜完成本週任務！正確 '+GOAL+' 次達成':'全部都對！本週這個任務正確 '+n+' 次 🌟')+msg;v.style.color='var(--green)';
+      }else{v.textContent='這次還沒全對，不計入正確次數。看看下面哪裡要改';v.style.color='var(--ink)';}
+      renderP();
+    }else{
     P.played[k]=(P.played[k]|0)+1;
     if(s.perfect){P.tasks[k]=(P.tasks[k]|0)+1;v.textContent='全部都對！這段正確 '+P.tasks[k]+' 次 🌟';v.style.color='var(--green)';}
     else{v.textContent='這次還沒全對，不計入正確次數。看看下面哪裡要改';v.style.color='var(--ink)';}
     saveP();renderP();
+    }
   }
   const off=$('offTxt');
   if(s.counted&&Math.abs(s.offset)>=0.12)off.textContent='整體來看，你的拍子平均'+(s.offset>0?'偏晚':'偏早')+'約 '+Math.abs(s.offset).toFixed(2)+' 拍。';
@@ -777,12 +804,18 @@ function onRangeInput(){cfg.from=parseInt($('from').value,10)||1;cfg.to=parseInt
 $('from').addEventListener('change',onRangeInput);$('to').addEventListener('change',onRangeInput);
 
 /* 網址參數：?song=star&from=1&to=8 */
-(function(){const q=new URLSearchParams(location.search);const s=q.get('song');if(s&&SONGS[s]){cfg.song=s;const p=SONGS[s].presets[0];cfg.from=p[1];cfg.to=p[2];}
+(function(){if(TASK)return;const q=new URLSearchParams(location.search);const s=q.get('song');if(s&&SONGS[s]){cfg.song=s;const p=SONGS[s].presets[0];cfg.from=p[1];cfg.to=p[2];}
   if(q.get('from'))cfg.from=parseInt(q.get('from'),10)||cfg.from;if(q.get('to'))cfg.to=parseInt(q.get('to'),10)||cfg.to;})();
 fillSongUi();applyRange();fillSongUi();
+if(TASK){   /* 任務模式：曲子與範圍由任務指定，不給改；標示模擬資料 */
+  ['rowSong','rowPreset','rowRange'].forEach(id=>$(id).hidden=true);
+  $('protoNote').hidden=true;$('mockNote').hidden=!TASK.mock;
+  $('pageTitle').textContent='本週任務';
+  document.title='陶笛失落地圖｜本週任務：'+TASK.name;
+}
 
 /* 測試掛鉤（僅供除錯，不影響使用） */
-window.__sp={judge,summarize,describe,detectPitch,ampOnsets,get R(){return R;},get cfg(){return cfg;},applyRange,build,SONGS,drawScore,startDemo,stopDemo,get demo(){return demo;}};
+window.__sp={TASK,Core,showResult,judge,summarize,describe,detectPitch,ampOnsets,get R(){return R;},get cfg(){return cfg;},applyRange,build,SONGS,drawScore,startDemo,stopDemo,get demo(){return demo;}};
 })();
 </script>
 </body>

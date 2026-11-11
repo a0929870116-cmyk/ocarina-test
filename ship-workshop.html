@@ -86,6 +86,7 @@ select{min-height:44px;font:500 16px var(--font-b);border:2px solid var(--line);
 .preview .gem{width:20px;height:20px;vertical-align:-5px}
 </style>
 <script src="sfx.js"></script>
+<script src="wk-core.js"></script>
 <script>if(window.Sfx){Sfx.auto('[data-tab]','nav');Sfx.auto('.btn','tap');}</script>
 </head>
 <body>
@@ -114,7 +115,7 @@ const nameOf=id=>byId(EL,id).n;
 const COST=3; /* 每次升級放入 3 顆晶體（任意種類）；位置決定顏色 */
 
 /* ===== 每週任務（要和 weekly-practice.html 一致；讀它的存檔 olm_wk_v2） ===== */
-const TASKS=[{id:'basic-1-1',name:'基本指法 1-1',weight:1,T:20}];
+const TASKS=OLM_WK.TASKS;   /* 任務清單在共用的 wk-core.js（含歌曲任務） */
 function todayKey(){return new Date(Date.now()+8*3600e3).toISOString().slice(0,10);}
 function weekIdx(start){return Math.max(0,Math.floor((Date.parse(todayKey()+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/864e5/7));}
 function wk(){
