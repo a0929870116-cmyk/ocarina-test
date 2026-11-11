@@ -210,7 +210,17 @@ details summary{min-height:44px;display:flex;align-items:center;font-weight:700;
 .crit.three .c b{font-size:13.5px}
 .crit .c.tap{cursor:pointer;-webkit-tap-highlight-color:transparent}.crit .c.tap:active{background:var(--vellum-2)}.crit .c.tap:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .sheet.scroll{max-height:85vh;overflow-y:auto;overscroll-behavior:contain}
-.cd-sec{display:flex;flex-direction:column;gap:3px}.cd-sec small{font-size:13px;color:var(--ink-2);font-weight:700}.cd-sec p{margin:0;font-size:16px;line-height:1.6}
+.cd-stage{position:relative;border:2.5px solid var(--ink);border-radius:14px;padding:12px 0 10px;display:grid;place-items:center;overflow:hidden;box-shadow:inset 0 0 0 3px var(--vellum-2),inset 0 0 0 4.5px var(--gold);animation:cdpop .4s ease-out both}
+.cd-sky{position:absolute;inset:0;pointer-events:none}.cd-art{position:relative;filter:drop-shadow(0 4px 6px rgba(74,47,26,.28))}.cd-art svg{display:block}
+.cd-hero{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;margin-top:-4px}
+.cd-ribbon{margin:0;padding:3px 22px;background:var(--green);color:var(--vellum-2);font-size:13.5px;font-weight:700;letter-spacing:.06em;clip-path:polygon(0 0,100% 0,calc(100% - 11px) 50%,100% 100%,0 100%,11px 50%);animation:cdpop .4s .05s ease-out both}
+.cd-hero h3{font-size:28px;line-height:1.1;animation:cdpop .4s .1s ease-out both}
+.cd-rule{display:flex;align-items:center;gap:8px}.cd-rule:before,.cd-rule:after{content:'';flex:1;border-top:3px double var(--gold)}.cd-rule svg{display:block}
+.cd-row{display:flex;gap:12px;align-items:center;background:var(--vellum);border:2px solid var(--ink);border-radius:12px;padding:10px 12px;box-shadow:inset 0 0 0 3px var(--vellum-2),inset 0 0 0 4.5px rgba(217,178,91,.7);animation:cdpop .4s ease-out both}
+#cd-body .cd-row:nth-child(1){animation-delay:.15s}#cd-body .cd-row:nth-child(2){animation-delay:.25s}
+.cd-row>.pic{flex:none;display:grid;place-items:center;text-align:center;gap:2px}.cd-row .pic svg{display:block}.cd-row .pic small{font-size:12px;color:var(--ink-2);font-weight:700;line-height:1.2}
+.cd-row .tx{min-width:0;display:flex;flex-direction:column;gap:5px;align-items:flex-start}.cd-row .tx b{font-size:13px;padding:1px 12px;border-radius:999px;background:var(--gold);color:var(--ink);border:1.5px solid var(--ink);line-height:1.5}.cd-row .tx p{margin:0;font-size:16px;line-height:1.55}
+@keyframes cdpop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
 .big2{font-family:var(--font-rune);font-size:46px;line-height:1.1;color:var(--green)}
 
 /* 底部導覽：半透明 */
@@ -491,8 +501,8 @@ a.btn{text-decoration:none}
   <div class="sheet scroll" role="dialog" aria-modal="true" aria-labelledby="cd-title">
     <div class="sheet-in">
       <svg class="braid" aria-hidden="true"><rect width="100%" height="14" fill="url(#braid)"/></svg>
-      <div class="sheet-row"><div id="cd-art" style="flex:none"></div><div style="min-width:0"><p class="kicker" id="cd-kicker"></p><h3 id="cd-title"></h3></div></div>
-      <div id="cd-body" style="display:flex;flex-direction:column;gap:12px"></div>
+      <div class="cd-stage" id="cd-stage"><div class="cd-sky" id="cd-sky"></div><div class="cd-art" id="cd-art"></div></div><div class="cd-hero"><p class="cd-ribbon" id="cd-kicker"></p><h3 id="cd-title"></h3></div>
+      <div id="cd-body" style="display:flex;flex-direction:column;gap:14px"></div>
       <button class="btn alt" id="cd-close" style="min-height:48px;font-size:18px">關閉</button>
     </div>
   </div>
@@ -670,12 +680,17 @@ function drawIsle(n){
 }
 function openIsle(n){drawIsle(n);go('isle');}
 function openCrit(n,i){
-  const I=ISLE_ART.info(n),A=ISLE_ART.data[n-1],sec=(k,t)=>'<div class="cd-sec"><small>'+k+'</small><p>'+t+'</p></div>';
-  $('cd-art').innerHTML=i?ISLE_ART.animal(n,84):ISLE_ART.plant(n,84);
+  const I=ISLE_ART.info(n),A=ISLE_ART.data[n-1];
+  const row=(pic,k,t)=>'<div class="cd-row"><div class="pic">'+pic+'</div><div class="tx"><b>'+k+'</b><p>'+t+'</p></div></div>';
+  $('cd-art').innerHTML=i?ISLE_ART.animal(n,132):ISLE_ART.plant(n,132);
+  $('cd-sky').innerHTML=ISLE_ART.sky();
+  const hx=A.c.slice(1),[r,g,b]=[0,2,4].map(k=>parseInt(hx.substr(k,2),16));
+  $('cd-stage').style.background='radial-gradient(circle at 50% 52%,rgba(255,255,255,.9) 0,rgba('+r+','+g+','+b+',.22) 60%,rgba('+r+','+g+','+b+',.38) 100%),var(--vellum)';
   $('cd-kicker').textContent='第 '+n+' 島 '+A.isle+'・'+(i?'動物':'植物');
   $('cd-title').textContent=i?A.animal:A.plant;
-  $('cd-body').innerHTML=sec('生態',i?I.aEco:I.pEco)+sec(i?'喜愛食物':'觀察筆記',i?I.aFood:I.pNote);
-  $('layer2').hidden=false;$('cd-close').focus();
+  $('cd-body').innerHTML=row(ISLE_ART.icon('eco',44),'生態',i?I.aEco:I.pEco)
+    +(i?row(ISLE_ART.food(n,68)+'<small>'+ISLE_ART.foodName(n)+'</small>','喜愛食物',I.aFood):row(ISLE_ART.icon('note',44),'觀察筆記',I.pNote));
+  $('layer2').hidden=false;
 }
 function closeCrit(){$('layer2').hidden=true;}
 $('scrim2').addEventListener('click',closeCrit);$('cd-close').addEventListener('click',closeCrit);
