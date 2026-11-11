@@ -154,12 +154,21 @@ function stepOf(n){return (4+n.oct)*7+(n.deg-1)-(4*7+2);}   /* 相對 E4（下�
 /* 簡譜時值記號：8 分下加一條線、16 分兩條；2 拍以上在右邊加「－」（每多一拍一條）；附點加「·」 */
 function durMarks(n,x,ty,g,ink){
   const d=n.dur,lines=d<=0.25+1e-9?2:d<=0.75+1e-9?1:0;
+  let hw=5;try{const b=n.num.getBBox();if(b.width>0)hw=b.width/2;}catch(e){}   /* 數字實際半寬 */
   for(let k=0;k<lines;k++)el('line',{x1:x-6,x2:x+6,y1:ty+4+k*3.5,y2:ty+4+k*3.5,stroke:ink,'stroke-width':1.5,'stroke-linecap':'round'},g);
-  if([0.75,1.5,3].some(v=>Math.abs(d-v)<1e-9))el('circle',{cx:x+(n.acc?10:9),cy:ty-4,r:1.7,fill:ink},g);
-  if(d>=2-1e-9){const m=Math.round(d)-1;for(let k=0;k<m;k++)el('line',{x1:x+10+k*13,x2:x+19+k*13,y1:ty-5,y2:ty-5,stroke:ink,'stroke-width':1.8,'stroke-linecap':'round'},g);}
+  /* 簡譜附點只用在 0.75、1.5 拍；3 拍以上已由「－」表達時值，不再加附點 */
+  if([0.75,1.5].some(v=>Math.abs(d-v)<1e-9))el('circle',{cx:x+hw+3.5,cy:ty-4,r:1.7,fill:ink},g);
+  if(d>=2-1e-9){const m=Math.round(d)-1;for(let k=0;k<m;k++)el('line',{x1:x+hw+4+k*13,x2:x+hw+13+k*13,y1:ty-5,y2:ty-5,stroke:ink,'stroke-width':1.8,'stroke-linecap':'round'},g);}
   return lines;
 }
-function wOf(n){let w=n.dur>=2?1.7:n.dur>=1?1.3:n.dur>=0.75?1.05:n.dur>=0.5?0.95:0.85;if(!n.rest&&n.acc)w+=ACC_PAD;return w;}
+function wOf(n){let w;
+  if(n.dur>=2)w=(8+18+13*(Math.round(n.dur)-2)+6)/15;   /* 長音：數字靠左，右邊留給「－」（每多一條加寬） */
+  else if(n.dur>=1.5)w=1.6;
+  else if(n.dur>=1)w=1.3;
+  else if(n.dur>=0.75)w=1.5;   /* 附點 8 分：附點要留位 */
+  else if(n.dur>=0.5)w=0.95;
+  else w=0.9;
+  if(!n.rest&&n.acc)w+=ACC_PAD;return w;}
 function barMin(b){return 14+b.notes.reduce((a,n)=>a+wOf(n),0)*15;}
 let R=null;            /* 目前範圍 build() 的結果 */
 function layoutRows(bars){
@@ -190,7 +199,7 @@ function drawScore(){
       const bw=mins[bi]*scale,inner=bw-14,tw=bar.notes.reduce((a,n)=>a+wOf(n),0);
       const isEnd=(r===rows.length-1&&bi===row.length-1);
       let cum=0;
-      bar.notes.forEach(n=>{const w=wOf(n),pad=(!n.rest&&n.acc)?ACC_PAD:0;n.x=x0+7+(cum+pad+(w-pad)/2)/tw*inner;cum+=w;n.row=r;n.top=top;n.bottom=bottom;});
+      bar.notes.forEach(n=>{const w=wOf(n),pad=(!n.rest&&n.acc)?ACC_PAD:0;const off=n.dur>=2?pad+8/15:pad+(w-pad)/2;n.x=x0+7+(cum+off)/tw*inner;cum+=w;n.row=r;n.top=top;n.bottom=bottom;});
       x0+=bw;
       const mx=x0;
       el('line',{x1:mx-(isEnd?4:0),x2:mx-(isEnd?4:0),y1:top,y2:bottom,stroke:ink,'stroke-width':1.2},svg);
@@ -250,7 +259,8 @@ function drawScore(){
           if(n.dur<=0.25){const d2=up?`M ${sx} ${ey+6} c 1 7 9 8 8 19`:`M ${sx} ${ey-6} c 1 -7 9 -8 8 -19`;const f2=el('path',{d:d2,fill:'none',stroke:ink,'stroke-width':1.8,'stroke-linecap':'round'},gEl);f2.setAttribute('data-flag','1');n.stems.push(f2);}
         }
       }
-      n.num=el('text',{x:x,y:ty,'font-size':15,'font-weight':800,'text-anchor':'middle',fill:ink},gEl,jpNum(n));
+      n.num=el('text',{x:x,y:ty,'font-size':15,'font-weight':800,'text-anchor':'middle',fill:ink},gEl,String(n.deg));
+      n.accJ=n.acc?el('text',{x:x-9.5,y:ty,'font-size':12,'font-weight':800,'text-anchor':'middle',fill:ink},gEl,n.acc>0?'♯':'♭'):null;
       const nl=durMarks(n,x,ty,gEl,ink);
       if(n.oct===-1)el('circle',{cx:x,cy:ty+5+nl*3.5,r:1.7,fill:ink},gEl);
       if(n.oct>=1)el('circle',{cx:x,cy:ty-15,r:1.7,fill:ink},gEl);
@@ -292,7 +302,7 @@ function drawScore(){
 function paintNote(n,color,badgeTxt){
   if(n.head){n.head.setAttribute('stroke',color);n.head.setAttribute('fill',n.dur>=2?'var(--vellum-2)':color);}
   (n.stems||[]).forEach(l=>{l.setAttribute('stroke',l.getAttribute('data-flag')?color:color);});
-  n.num.setAttribute('fill',color);
+  n.num.setAttribute('fill',color);if(n.accJ)n.accJ.setAttribute('fill',color);
   n.badge.textContent=badgeTxt||'';n.badge.setAttribute('fill',color);
 }
 function resetPaint(){R.notes.forEach(n=>{paintNote(n,'var(--ink)','');n.hl.setAttribute('opacity',0);});$('legend').hidden=true;}
