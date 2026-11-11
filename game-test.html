@@ -208,6 +208,9 @@ details summary{min-height:44px;display:flex;align-items:center;font-weight:700;
 .crit .c .ph.art{border:0;background:none;width:auto;height:auto;display:block}.crit .c .ph.art svg{display:block}
 .crit.three .c .ph{width:44px;height:44px;font-family:var(--font-rune);font-size:16px}
 .crit.three .c b{font-size:13.5px}
+.crit .c.tap{cursor:pointer;-webkit-tap-highlight-color:transparent}.crit .c.tap:active{background:var(--vellum-2)}.crit .c.tap:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.sheet.scroll{max-height:85vh;overflow-y:auto;overscroll-behavior:contain}
+.cd-sec{display:flex;flex-direction:column;gap:3px}.cd-sec small{font-size:13px;color:var(--ink-2);font-weight:700}.cd-sec p{margin:0;font-size:16px;line-height:1.6}
 .big2{font-family:var(--font-rune);font-size:46px;line-height:1.1;color:var(--green)}
 
 /* 底部導覽：半透明 */
@@ -468,7 +471,7 @@ a.btn{text-decoration:none}
     <button type="button" class="back" data-go="map">← 回地圖</button>
     <section class="page card" aria-labelledby="dex-h">
       <div class="sec-head" style="margin:0"><h2 id="dex-h">全部圖鑑</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg><span class="cnt num" id="dex-cnt"></span></div>
-      <p class="hint">開啟一座島，就解鎖這座島的 1 種植物和 1 種動物。</p>
+      <p class="hint">開啟一座島，就解鎖這座島的 1 種植物和 1 種動物。點圖片，看詳細介紹。</p>
       <div id="dex-body"></div>
     </section>
   </div>
@@ -483,6 +486,17 @@ a.btn{text-decoration:none}
   </div>
 </nav>
 
+<div id="layer2" hidden>
+  <div class="scrim" id="scrim2"></div>
+  <div class="sheet scroll" role="dialog" aria-modal="true" aria-labelledby="cd-title">
+    <div class="sheet-in">
+      <svg class="braid" aria-hidden="true"><rect width="100%" height="14" fill="url(#braid)"/></svg>
+      <div class="sheet-row"><div id="cd-art" style="flex:none"></div><div style="min-width:0"><p class="kicker" id="cd-kicker"></p><h3 id="cd-title"></h3></div></div>
+      <div id="cd-body" style="display:flex;flex-direction:column;gap:12px"></div>
+      <button class="btn alt" id="cd-close" style="min-height:48px;font-size:18px">關閉</button>
+    </div>
+  </div>
+</div>
 <div id="layer" hidden>
   <div class="scrim" id="scrim"></div>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-title">
@@ -649,12 +663,27 @@ function drawIsle(n){
     +'<div class="entry" style="padding-top:0;border:0"><div class="no">'+RN[n-1]+'</div><div style="min-width:0"><small>星星足跡</small><p>'+STORY[n][1]+'</p></div></div>'
     +'<details class="key" style="margin:0"><summary>✦ 鑰匙碎片 '+n+' / 9・'+F[0]+'</summary>'+F[1].map(t=>'<p>'+t+'</p>').join('')+'</details>'
     +'<div class="sec-head" style="margin:0"><h2 style="font-size:18px">生態圖鑑</h2><span class="rule"></span></div>'
-    +'<div class="crit"><div class="c"><div class="ph art">'+ISLE_ART.plant(n,60)+'</div><small>植物</small><b>'+C[0]+'</b></div><div class="c"><div class="ph art">'+ISLE_ART.animal(n,60)+'</div><small>動物</small><b>'+C[1]+'</b></div></div>'
+    +'<p class="hint" style="margin:-4px 0 0">'+ISLE_ART.info(n).blurb+'</p>'
+    +'<div class="crit"><div class="c tap" role="button" tabindex="0" data-crit="'+n+',0"><div class="ph art">'+ISLE_ART.plant(n,60)+'</div><small>植物</small><b>'+C[0]+'</b></div><div class="c tap" role="button" tabindex="0" data-crit="'+n+',1"><div class="ph art">'+ISLE_ART.animal(n,60)+'</div><small>動物</small><b>'+C[1]+'</b></div></div>'
+    +'<p class="hint" style="margin:-6px 0 0;text-align:center">點圖片，看詳細介紹</p>'
     +'</div>';
 }
 function openIsle(n){drawIsle(n);go('isle');}
+function openCrit(n,i){
+  const I=ISLE_ART.info(n),A=ISLE_ART.data[n-1],sec=(k,t)=>'<div class="cd-sec"><small>'+k+'</small><p>'+t+'</p></div>';
+  $('cd-art').innerHTML=i?ISLE_ART.animal(n,84):ISLE_ART.plant(n,84);
+  $('cd-kicker').textContent='第 '+n+' 島 '+A.isle+'・'+(i?'動物':'植物');
+  $('cd-title').textContent=i?A.animal:A.plant;
+  $('cd-body').innerHTML=sec('生態',i?I.aEco:I.pEco)+sec(i?'喜愛食物':'觀察筆記',i?I.aFood:I.pNote);
+  $('layer2').hidden=false;$('cd-close').focus();
+}
+function closeCrit(){$('layer2').hidden=true;}
+$('scrim2').addEventListener('click',closeCrit);$('cd-close').addEventListener('click',closeCrit);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeCrit();});
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-crit]');if(!t)return;const[a,b]=t.dataset.crit.split(',').map(Number);if(a<=OPEN)openCrit(a,b);});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const t=e.target.closest&&e.target.closest('[data-crit]');if(!t)return;e.preventDefault();t.click();});
 function drawDex(){
-  const cell=(n,i,kind)=>n<=OPEN?'<div class="c"><div class="ph art">'+(i?ISLE_ART.animal(n,44):ISLE_ART.plant(n,44))+'</div><b>'+CRIT[n][i]+'</b></div>':'<div class="c off"><div class="ph">？</div><b>第 '+n+' 島</b></div>';
+  const cell=(n,i,kind)=>n<=OPEN?'<div class="c tap" role="button" tabindex="0" data-crit="'+n+','+i+'"><div class="ph art">'+(i?ISLE_ART.animal(n,44):ISLE_ART.plant(n,44))+'</div><b>'+CRIT[n][i]+'</b></div>':'<div class="c off"><div class="ph">？</div><b>第 '+n+' 島</b></div>';
   let h='';
   [['植物',0],['動物',1]].forEach(([t,i])=>{
     h+='<div class="sec-head" style="margin:14px 0 8px"><h2 style="font-size:18px">'+t+'</h2><span class="rule"></span><span class="cnt num">'+OPEN+' / 12</span></div><div class="crit three">';
