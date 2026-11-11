@@ -720,11 +720,11 @@ function saveP(){try{localStorage.setItem('olm_test_v1',JSON.stringify({succ:SUC
 const WK_TASKS=[{id:'basic-1-1',name:'基本指法 1-1',weight:1,T:20}];
 function todayKey(){return new Date(Date.now()+8*3600e3).toISOString().slice(0,10);}
 function weekIdx(start){return Math.max(0,Math.floor((Date.parse(todayKey()+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/864e5/7));}
-function wkState(){let tasks={},given=0,week=0;try{const o=JSON.parse(localStorage.getItem('olm_wk_v2')||'null');
+function wkState(){let tasks={},given=0,week=0,elem=0,bag=0;try{const o=JSON.parse(localStorage.getItem('olm_wk_v2')||'null');
   if(o&&o.v===2){const st=o.start||(typeof o.week==='string'?o.week:todayKey()),prev=typeof o.week==='number'?o.week:0,idx=weekIdx(st);week=idx;
-    if(prev===idx){tasks=o.tasks||{};given=o.given|0;}}
+    bag=o.bag|0;if(prev===idx){tasks=o.tasks||{};given=o.given|0;elem=o.elem|0;}}
   else{const w=JSON.parse(localStorage.getItem('olm_weekly_v1')||'null');if(w&&typeof w.perfect==='number'){tasks[WK_TASKS[0].id]=w.perfect;given=Math.min(w.perfect,20);}}}catch(e){}
-  return {tasks,given,week};}
+  return {tasks,given,week,elem,bag};}
 function renderWeekly(){
   const W=wkState(),one=WK_TASKS.length===1,t0=WK_TASKS[0];
   const e=$('wk-n');
@@ -734,7 +734,7 @@ function renderWeekly(){
   const l=$('wk-list');if(l)l.textContent=one?'':WK_TASKS.map(t=>t.name+' '+Math.min(W.tasks[t.id]|0,t.T)+'／'+t.T).join('　');
   const t=$('wk-jar-t');if(t)t.textContent=JAR+' / '+NEED;
   const b=$('wk-jar-bar');if(b)b.style.width=(JAR/NEED*100)+'%';
-  const dd=$('wk-day');if(dd)dd.textContent='第 '+(W.week+1)+' 週星星糖 '+W.given+' ／ 20。';
+  const dd=$('wk-day');if(dd)dd.textContent='第 '+(W.week+1)+' 週星星糖 '+W.given+' ／ 20，本週元素 '+W.elem+' ／ 10（背包 '+W.bag+'）。';
 }
 function renderProgress(){
   renderWeekly();
