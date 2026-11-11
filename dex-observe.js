@@ -183,6 +183,7 @@ var FCSS=''
 +'.fr-svg{position:absolute;left:50%;top:0;height:100%;width:auto;max-width:100%;transform:translateX(-50%);overflow:visible;pointer-events:none}'
 +'.fr-ring{fill:none;stroke:rgba(190,255,170,.16);stroke-width:5}.fr-prog{fill:none;stroke:#b9ff7a;stroke-width:5;stroke-linecap:round;filter:drop-shadow(0 0 4px rgba(185,255,122,.8));transition:stroke-dashoffset .12s linear}'
 +'.fr-ferns{transform-origin:150px 250px;filter:brightness(calc(.75 + var(--g)*.9)) drop-shadow(0 0 calc(2px + var(--g)*13px) rgba(150,255,140,calc(.15 + var(--g)*.85)))}'
++'.fr-grow{transform-origin:0 0;transform:scale(calc(.22 + .78*min(1,max(0,var(--p,0)*1.3 - var(--o,0)))));transition:transform .18s linear}'
 +'.fr-glow{fill:url(#frg);opacity:calc(.12 + var(--g)*.88);transform-box:fill-box;transform-origin:center;transform:scale(calc(.8 + var(--g)*.7))}'
 +'.fr-stage.beat .fr-glow{animation:frbeat .3s ease-out}'
 +'.fr-stage.beat .fr-ferns{animation:frsway .3s ease-out}'
@@ -196,7 +197,7 @@ var FCSS=''
 +'@keyframes frout{0%{transform:translate(0,0) scale(.3);opacity:0}15%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(1);opacity:1}}'
 +'@keyframes frflick{0%,100%{opacity:.35}50%{opacity:1}}'
 +'@keyframes frdrift{0%{transform:translate(0,0)}100%{transform:translate(var(--wx),var(--wy))}}'
-+'@media (prefers-reduced-motion:reduce){.fr-stage.beat .fr-glow,.fr-stage.beat .fr-ferns,.fr-fly i{animation:none}}';
++'@media (prefers-reduced-motion:reduce){.fr-grow{transition:none}.fr-stage.beat .fr-glow,.fr-stage.beat .fr-ferns,.fr-fly i{animation:none}}';
 
 /* 蕨：5 根新芽（尖端捲成小圈），小葉成對排在莖兩側 */
 function frondSVG(a,len,i){
@@ -206,12 +207,12 @@ function frondSVG(a,len,i){
     lf+='<ellipse cx="'+(-w-2)+'" cy="'+(-y)+'" rx="'+w+'" ry="3.4" transform="rotate(-28 '+(-w-2)+' '+(-y)+')"/>'
        +'<ellipse cx="'+(w+2)+'" cy="'+(-y)+'" rx="'+w+'" ry="3.4" transform="rotate(28 '+(w+2)+' '+(-y)+')"/>';
   }
-  return '<g transform="translate(150 250) rotate('+a+')">'
+  return '<g transform="translate(150 250) rotate('+a+')"><g class="fr-grow" style="--o:'+(i*.07).toFixed(2)+'">'
    +'<circle class="fr-glow" style="--i:'+i+';animation-delay:'+(i*.04)+'s" cx="9" cy="'+(-h-4)+'" r="27"/>'
    +'<path d="M0 0C-3 '+(-h*.4)+' 2 '+(-h*.75)+' 0 '+(-h)+'" fill="none" stroke="#3d9a5e" stroke-width="4" stroke-linecap="round"/>'
    +'<g fill="#58c47a" stroke="#1f5a3a" stroke-width="1.2">'+lf+'</g>'
    +'<path d="M0 '+(-h)+'c0-12 14-16 19-6c4 9-5 16-12 12c-6-3-4-11 2-10" fill="none" stroke="#b9ff7a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>'
-   +'</g>';
+   +'</g></g>';
 }
 function fernSVG(){
   var C=2*Math.PI*122;
@@ -251,7 +252,7 @@ function fernHint(msg){
   b.textContent=F.mic?'再吹一次':'開始吹奏';
   if(msg){h.textContent=msg;}
   else if(F.calib>0)h.textContent='先安靜一下…';
-  else h.textContent=F.mic?'對著新芽，吹一段陶笛。':'按「開始吹奏」，對著新芽吹陶笛。';
+  else h.textContent=F.mic?'對著新芽，吹一段陶笛。吹越久，長越大。':'按「開始吹奏」，對著新芽吹陶笛。';
   sub.textContent=F.mic?'':(F.micErr||'沒有麥克風？也可以按住畫面代替。');
 }
 function onFernBtn(){
@@ -311,6 +312,7 @@ function fernTick(ts){
   F.g+=(target-F.g)*Math.min(1,dt*(target>F.g?14:3.5));
   var g=F.done?1:Math.min(1,F.g+F.pulse*.3);
   st.style.setProperty('--g',g.toFixed(3));
+  st.style.setProperty('--p',F.prog.toFixed(3));
   if(blow){F.blowT+=dt;F.prog=Math.min(1,F.prog+dt/BLOW_SEC);}
   var C=2*Math.PI*122,pr=$('#fr-prog',el);
   if(pr)pr.setAttribute('stroke-dashoffset',(C*(1-F.prog)).toFixed(1));
