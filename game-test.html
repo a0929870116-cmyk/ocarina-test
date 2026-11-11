@@ -345,9 +345,9 @@ a.btn{text-decoration:none}
     <section class="page card" aria-labelledby="jar-h">
       <div class="sec-head" style="margin:0"><h2 id="jar-h">星星罐</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg></div>
       <div class="jarwrap">
-        <svg class="jarsvg" id="jarsvg" viewBox="0 0 160 196" role="img" aria-label="玻璃罐裡有 9 顆星星糖，共需 15 顆"></svg>
+        <svg class="jarsvg" id="jarsvg" viewBox="0 0 160 196" role="img" aria-label="玻璃罐裡有 9 顆星星糖，共需 40 顆"></svg>
         <div class="jarinfo">
-          <p class="big"><span id="jar-n">9</span><small> / 15</small></p>
+          <p class="big"><span id="jar-n">9</span><small> / 40</small></p>
           <p class="hint" id="jar-hint">再 6 顆星星糖，就能開啟第 4 座島，島民會送上謝禮金幣。</p>
         </div>
       </div>
@@ -362,9 +362,10 @@ a.btn{text-decoration:none}
         <p class="kicker">本週任務：基本指法 1-1</p>
         <p class="big2 num" id="wk-n">0 / 20</p>
       </div>
-      <div class="meter"><div class="row"><span>星星罐</span><span class="num" id="wk-jar-t">9 / 15</span></div><div class="track"><i id="wk-jar-bar" style="width:60%"></i></div></div>
+      <div class="meter"><div class="row"><span>星星罐</span><span class="num" id="wk-jar-t">9 / 40</span></div><div class="track"><i id="wk-jar-bar" style="width:60%"></i></div></div>
       <button class="btn" id="wk-go"><svg><use href="#n-ocarina"/></svg><span>開始本週練習</span></button>
-      <p class="hint">照樂譜吹，音準與節拍全部都對才算一次，每次 +2 顆星星糖。吹完會告訴你哪裡要改。</p>
+      <p class="hint">照樂譜吹，音準與節拍全部都對才算一次，每次 +1 顆星星糖（每天最多 5 次有星星糖，次數照算）。兩週的任務可以開一座島。</p>
+      <p class="hint" id="wk-day"></p>
     </section>
 
     <section class="page card" aria-labelledby="pr-h" hidden style="display:none">
@@ -373,7 +374,7 @@ a.btn{text-decoration:none}
         <p class="kicker">累計成功次數</p>
         <p class="big2 num" id="succ">12</p>
       </div>
-      <div class="meter"><div class="row"><span>星星罐</span><span class="num" id="pr-jar-t">9 / 15</span></div><div class="track"><i id="pr-jar-bar" style="width:60%"></i></div></div>
+      <div class="meter"><div class="row"><span>星星罐</span><span class="num" id="pr-jar-t">9 / 40</span></div><div class="track"><i id="pr-jar-bar" style="width:60%"></i></div></div>
       <div class="alertbox" id="inapp" hidden>偵測到你可能在 LINE、臉書或 IG 的內建瀏覽器，常會擋麥克風。請點右上角「⋯」，選「用預設瀏覽器開啟」（iPhone 是「用 Safari 開啟」）再試。</div>
       <div id="blow" hidden style="display:flex;flex-direction:column;gap:10px">
         <div class="live">
@@ -387,7 +388,7 @@ a.btn{text-decoration:none}
       </div>
       <p class="msg" id="b-err" style="color:var(--ruby);font-weight:700" hidden></p>
       <button class="btn" id="start-blow"><svg><use href="#n-ocarina"/></svg><span id="start-t">開始吹奏</span></button>
-      <p class="hint">測試版暫定規則：吹準一個音並穩住 1 秒，算成功一次，+2 顆星星糖；停頓超過 5 秒記一次失敗。每日上限測試版先不限制。</p>
+      <p class="hint">測試版暫定規則：吹準一個音並穩住 1 秒，算成功一次，+1 顆星星糖；停頓超過 5 秒記一次失敗。每日上限測試版先不限制。</p>
       <details class="set"><summary>測試設定</summary>
         <label for="b-target">目標音（簡譜 1＝C）</label>
         <select id="b-target"></select>
@@ -516,7 +517,8 @@ const $=id=>document.getElementById(id);
 const STORY={1:['星光草原的小星星，一顆也不亮了。男孩吹起喚醒音，草原的星星慢慢想起歌，輕輕地唱，像搖籃曲。','草叢裡壓平了一小塊，留著一點紫色星塵，好像有人在這裡坐了一整夜，聽歌。'],
  2:['月光湖的水面，沒有月亮的倒影了。男孩吹起喚醒音，湖水慢慢想起歌，一圈一圈，像豎琴。','湖面留著紫色的漣漪，好像有人對著湖面試著唱，唱到一半，停了。'],
  3:['彩虹雲島的彩虹，褪色了。男孩吹起喚醒音，彩虹慢慢想起歌，輕快地跳起舞。','裁縫師說：有一顆星星來借走一條紫色彩帶，問：「怎麼唱，才有感覺？」']};
-const OPEN=3, NEXT=4, NEED=15; let JAR=9;   /* 已開 3 座、下一座是第 4 島、星星罐 9／15 */
+const OPEN=3, NEXT=4, NEED=40; let JAR=9;   /* 已開 3 座、下一座是第 4 島、星星罐 9／40（兩週一座島：每週任務 20 次、每次 +1） */
+const DAILY_CAP=5;
 const ISLES=[
   {n:1,name:'星光草原',s:'lit'},{n:2,name:'月光湖',s:'lit'},{n:3,name:'彩虹雲島',s:'lit'},
   {n:6,name:'燈籠森林',s:'fog'},{n:4,name:'棉花雲島',s:'cur'},{n:5,name:'山谷河流',s:'fog'},
@@ -576,18 +578,18 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet();});
 let tt;
 function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,1800);}
 
-/* 玻璃罐＋星星糖：15 顆由下往上、由左往右集滿 */
+/* 玻璃罐＋星星糖：20 格由下往上、由左往右集滿；每格＝NEED/20 顆（40 顆＝每 2 顆亮一格） */
 function starPts(cx,cy,R,r){let p=[];for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,k=i%2?r:R;p.push((cx+k*Math.cos(a)).toFixed(1)+','+(cy+k*Math.sin(a)).toFixed(1));}return p.join(' ');}
 function drawJar(n){
   const COL=['#F28B82','#F7C948','#7CC6E8','#8FD19E','#C9A0E8','#F4A261'];
-  const xs=[36,58,80,102,124], ys=[164,136,108];
+  const xs=[36,58,80,102,124], ys=[166,142,118,94]; n=Math.floor(n*20/NEED);
   const body='M44 40C20 46 14 64 14 82V164C14 180 24 188 40 188H120C136 188 146 180 146 164V82C146 64 140 46 116 40Z';
   let s='<path d="'+body+'" fill="var(--glass)"/>';
-  for(let i=0;i<15;i++){
+  for(let i=0;i<20;i++){
     const row=Math.floor(i/5), col=i%5, x=xs[col]+(row%2?5:0), y=ys[row]-(col%2?2:0);
     if(i<n){const rot=(i*37)%50-25, c=COL[i%COL.length];
-      s+='<g'+(i===n-1?' class="cd-new"':'')+'><g transform="rotate('+rot+' '+x+' '+y+')"><polygon points="'+starPts(x,y,11.5,5.6)+'" fill="'+c+'" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="'+(x-3)+'" cy="'+(y-3.5)+'" r="1.7" fill="#fff" opacity=".8"/></g></g>';
-    }else s+='<polygon class="cd-empty" points="'+starPts(x,y,10,5)+'"/>';
+      s+='<g'+(i===n-1?' class="cd-new"':'')+'><g transform="rotate('+rot+' '+x+' '+y+')"><polygon points="'+starPts(x,y,10.5,5.1)+'" fill="'+c+'" stroke="var(--ink)" stroke-width="1.6" stroke-linejoin="round"/><circle cx="'+(x-3)+'" cy="'+(y-3.5)+'" r="1.7" fill="#fff" opacity=".8"/></g></g>';
+    }else s+='<polygon class="cd-empty" points="'+starPts(x,y,9,4.5)+'"/>';
   }
   s+='<path d="'+body+'" fill="none" stroke="var(--ink)" stroke-width="3.2" stroke-linejoin="round"/>';
   s+='<path d="M24 86V160" stroke="var(--glass-edge)" stroke-width="5" stroke-linecap="round" fill="none"/><path d="M24 70V76" stroke="var(--glass-edge)" stroke-width="5" stroke-linecap="round" fill="none"/><path d="M134 96V132" stroke="var(--glass-edge)" stroke-width="3" stroke-linecap="round" fill="none" opacity=".6"/>';
@@ -714,11 +716,13 @@ const mname=m=>MN[((m%12)+12)%12]+(Math.floor(m/12)-1);
 let SUCC=12;
 try{const sv=JSON.parse(localStorage.getItem('olm_test_v1')||'null');if(sv){SUCC=sv.succ|0;JAR=Math.max(0,Math.min(NEED,sv.jar|0));}}catch(e){}
 function saveP(){try{localStorage.setItem('olm_test_v1',JSON.stringify({succ:SUCC,jar:JAR}));}catch(e){}}
+function dayLeft(){try{const o=JSON.parse(localStorage.getItem('olm_test_v1')||'null')||{};const d=new Date(),k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();return Math.max(0,DAILY_CAP-(o.day===k?(o.today|0):0));}catch(e){return DAILY_CAP;}}
 function renderWeekly(){
   let n=0;try{const o=JSON.parse(localStorage.getItem('olm_weekly_v1')||'null');if(o&&typeof o.perfect==='number')n=o.perfect;}catch(e){}
   const e=$('wk-n');if(e)e.textContent=Math.min(n,20)+' / 20'+(n>20?'（累計 '+n+'）':'');
   const t=$('wk-jar-t');if(t)t.textContent=JAR+' / '+NEED;
   const b=$('wk-jar-bar');if(b)b.style.width=(JAR/NEED*100)+'%';
+  const dd=$('wk-day');if(dd)dd.textContent='今天還能拿 '+dayLeft()+' 次星星糖。';
 }
 function renderProgress(){
   renderWeekly();
@@ -837,12 +841,12 @@ function stopBlow(){
   $('blow').hidden=true;$('start-t').textContent='開始吹奏';
 }
 function onSuccess(label){
-  SUCC++;JAR=Math.min(NEED,JAR+2);saveP();renderProgress();
+  SUCC++;JAR=Math.min(NEED,JAR+1);saveP();renderProgress();
   B.tries.push({ok:true});drawTries();
   B.needRelease=true;B.holdNote=null;
   setMsg('成功！＋2 顆星星糖（'+label+'）。停一下氣，再吹下一次');
   try{if(navigator.vibrate)navigator.vibrate(60);}catch(e){}
-  toast(JAR>=NEED?'星星罐滿了！測試版不開島':'成功一次，＋2 顆星星糖');
+  toast(JAR>=NEED?'星星罐滿了！測試版不開島':'成功一次，＋1 顆星星糖');
 }
 function onFail(){
   B.tries.push({ok:false});drawTries();
