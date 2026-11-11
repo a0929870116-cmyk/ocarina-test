@@ -61,20 +61,27 @@
     probe:null,
     setOn:function(b){off=!b;try{localStorage.setItem('olm_sfx_off',b?'0':'1');}catch(e){}},
     isOn:function(){return !off;},
-    auto:function(selector,kind){
-      sel.push([selector,kind||'tap']);
-      if(sel.length===1){
-        document.addEventListener('click',function(e){
-          var tg=e.target;if(!tg||!tg.closest)return;
-          for(var i=0;i<sel.length;i++){
-            var el=tg.closest(sel[i][0]);
-            if(!el||el.disabled||el.getAttribute('aria-disabled')==='true'||el.hasAttribute('data-nosfx'))continue;
-            var n=Date.now();if(n-last<60)return;last=n;
-            play(sel[i][1]);return;
-          }
-        },true);
-      }
-    }
+    auto:function(selector,kind){sel.push([selector,kind||'tap']);}
   };
+  /* 全域監聽：先比對 auto 登記的選擇器（nav／tap），沒符合的「任何可按的東西」也出 tap（按鈕、連結、摘要、role=button、[data-act]、[data-go]、.tap）。
+     不想出聲的元素加 data-nosfx（例如麥克風開始／停止鈕）。 */
+  var PRESS='button,[role="button"],a[href],summary,[data-act],[data-go],.tap,.cell,select';
+  document.addEventListener('click',function(e){
+    var tg=e.target;if(!tg||!tg.closest)return;
+    var kind=null,i,el;
+    for(i=0;i<sel.length;i++){
+      el=tg.closest(sel[i][0]);
+      if(!el)continue;
+      if(el.disabled||el.getAttribute('aria-disabled')==='true'||el.hasAttribute('data-nosfx'))return;
+      kind=sel[i][1];break;
+    }
+    if(!kind){
+      el=tg.closest(PRESS);
+      if(!el||el.disabled||el.getAttribute('aria-disabled')==='true'||el.closest('[data-nosfx]'))return;
+      kind='tap';
+    }
+    var n=Date.now();if(n-last<60)return;last=n;
+    play(kind);
+  },true);
   window.Sfx=S;
 })();

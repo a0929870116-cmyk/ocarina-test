@@ -422,11 +422,20 @@ function scene(i){
 
 /* 序章背景音樂：進入故事時淡入，離開時淡出；手機需點擊才能播放，所以右上角有開關 */
 const BGM=new Audio(M('bgm'));BGM.loop=true;BGM.preload='auto';BGM.volume=0;
-let bgmOn=true,bgmFade=null,practiceHold=false;
+let bgmOn=true,bgmFade=null,practiceHold=false,inGame=false;
+const BGM_LOGIN=.55, BGM_GAME_RATIO=.7;   /* 登入／序章階段音量 .55；進入遊戲後再小聲 30％（×0.7）。想調整只改這兩個數字 */
+/* iPhone 的 Audio.volume 唯讀：改走 WebAudio 增益節點控制音量（設定音量沒生效時才啟用） */
+let bgmCtx=null,bgmGain=null;
+(function(){try{BGM.volume=.5;const ok=Math.abs(BGM.volume-.5)<.01;BGM.volume=0;if(ok)return;
+  const AC=window.AudioContext||window.webkitAudioContext;bgmCtx=new AC();const src=bgmCtx.createMediaElementSource(BGM);
+  bgmGain=bgmCtx.createGain();bgmGain.gain.value=0;src.connect(bgmGain);bgmGain.connect(bgmCtx.destination);}catch(e){bgmCtx=null;bgmGain=null;}})();
+const getV=()=>bgmGain?bgmGain.gain.value:BGM.volume;
+const setV=v=>{try{if(bgmGain)bgmGain.gain.value=v;else BGM.volume=v;}catch(e){}};
+const bgmTarget=()=>BGM_LOGIN*(inGame?BGM_GAME_RATIO:1);
 const bgmBtn=document.createElement('button');bgmBtn.type='button';bgmBtn.id='bgmbtn';bgmBtn.setAttribute('aria-label','音樂開關');bgmBtn.textContent='♪';document.body.appendChild(bgmBtn);
-function fadeTo(v,done){clearInterval(bgmFade);let n=0;bgmFade=setInterval(()=>{n++;const d=v-BGM.volume;if(Math.abs(d)<.03||n>20){try{BGM.volume=v}catch(e){}clearInterval(bgmFade);done&&done()}else BGM.volume=Math.max(0,Math.min(1,BGM.volume+Math.sign(d)*.03))},60)}
+function fadeTo(v,done){clearInterval(bgmFade);let n=0;bgmFade=setInterval(()=>{n++;const d=v-getV();if(Math.abs(d)<.03||n>20){setV(v);clearInterval(bgmFade);done&&done()}else setV(Math.max(0,Math.min(1,getV()+Math.sign(d)*.03)))},60)}
 function bgm(){bgmBtn.style.display='flex';bgmBtn.classList.toggle('off',!bgmOn);
-  if(bgmOn&&!practiceHold){const p=BGM.play();if(p&&p.catch)p.catch(()=>{});fadeTo(.55)}else{clearInterval(bgmFade);BGM.pause()}}
+  if(bgmOn&&!practiceHold){if(bgmCtx&&bgmCtx.state==='suspended'){try{bgmCtx.resume();}catch(e){}}const p=BGM.play();if(p&&p.catch)p.catch(()=>{});fadeTo(bgmTarget())}else{clearInterval(bgmFade);BGM.pause()}}
 /* 手機瀏覽器不允許自動出聲：先嘗試播放，失敗就在第一次觸碰畫面時開始 */
 const bgmKick=()=>{if(bgmOn&&!practiceHold&&BGM.paused)bgm();else if(!BGM.paused)removeEventListener('pointerdown',bgmKick,true)};
 addEventListener('pointerdown',bgmKick,true);
@@ -475,7 +484,7 @@ document.addEventListener('submit',e=>{e.preventDefault();const g=e.target.datas
 
 /* ===== 遊戲頁（game-test.html）：登入後載入；音樂與故事序章由這一層負責 ===== */
 let storyFromGame=false;
-function setGameVisible(on){const f=$('#gamefr');f.hidden=!on;$('#app').style.visibility=on?'hidden':'visible';}
+function setGameVisible(on){const f=$('#gamefr');f.hidden=!on;$('#app').style.visibility=on?'hidden':'visible';inGame=!!on;bgm();}
 function enterGame(){
   const f=$('#gamefr');
   if(!f.getAttribute('src'))f.setAttribute('src','game-test.html?n='+encodeURIComponent(USER));
