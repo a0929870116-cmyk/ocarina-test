@@ -21,6 +21,11 @@ h2{font-size:17px;margin:0 0 8px}
 .btn:active{transform:translateY(2px)}
 .btn.alt{background:var(--vellum-2);font-size:16px;padding:9px}
 .btn:disabled{opacity:.5}
+.btnrow{display:flex;gap:8px}
+.btnrow .btn{width:auto}
+#goBtn{flex:1.5}
+#demoBtn{flex:1;font-size:17px;background:var(--vellum-2)}
+#demoBtn.on{background:var(--gold-hi)}
 .hint{font-size:13px;color:var(--ink-2);margin:6px 0 0}
 .task{font-size:18px;font-weight:800}
 .bar{height:16px;border:2px solid var(--ink);border-radius:10px;background:#fff8;overflow:hidden;margin:8px 0 4px}
@@ -90,7 +95,7 @@ ul.errs li b{font-weight:800}
   </section>
 
   <section class="card" id="ctlCard">
-    <button class="btn" id="goBtn">🎤 開始吹奏</button>
+    <div class="btnrow"><button class="btn" id="goBtn">🎤 開始吹奏</button><button class="btn alt" id="demoBtn">🔊 聽示範</button></div>
     <button class="btn alt" id="stopBtn" hidden style="margin-top:8px">⏹ 中途停止（這次不算）</button>
     <div class="row"><label for="song">曲子</label><select id="song"></select></div>
     <div class="row"><label for="preset">範圍</label><select id="preset"></select></div>
@@ -103,7 +108,7 @@ ul.errs li b{font-weight:800}
       <select id="bpm"><option value="40">♩=40（很慢）</option><option value="50">♩=50（慢）</option><option value="60" selected>♩=60（標準）</option><option value="72">♩=72（稍快）</option><option value="90">♩=90（快）</option></select></div>
     <div class="row"><label for="tol">音準容許</label>
       <select id="tol"><option value="10">±10 音分</option><option value="15">±15 音分</option><option value="25" selected>±25 音分（鬆）</option><option value="40">±40 音分（很鬆）</option></select></div>
-    <p class="hint">按下後先聽 4 拍預備拍，接著照譜吹；休止符就停下來。音準、節拍都對，才算一次「正確」。相同的音連著吹時，請用舌頭輕輕「tu」斷開。建議戴耳機，節拍聲才不會被麥克風收進去。一次最多練 16 小節。</p>
+    <p class="hint">「聽示範」會用目前選的小節與速度，先 4 拍預備拍再播一遍（合成音，不是真陶笛），樂譜游標會跟著走；示範時麥克風是關的。<br>按「開始吹奏」後先聽 4 拍預備拍，接著照譜吹；休止符就停下來。音準、節拍都對，才算一次「正確」。相同的音連著吹時，請用舌頭輕輕「tu」斷開。建議戴耳機，節拍聲才不會被麥克風收進去。一次最多練 16 小節。</p>
     <div class="err" id="errMsg" hidden></div>
   </section>
 
@@ -529,6 +534,7 @@ let lastRes=null;
 
 
 async function startRun(){
+  if(demo)return;
   showErr('');
   $('goBtn').disabled=true;
   try{await openMic();}catch(e){showErr(micError(e));$('goBtn').disabled=false;return;}
@@ -541,7 +547,7 @@ async function startRun(){
   resetPaint();
   r0Gauge(tol);
   $('resCard').hidden=true;$('liveBox').hidden=false;
-  $('goBtn').hidden=true;$('stopBtn').hidden=false;$('goBtn').disabled=false;
+  $('goBtn').hidden=true;$('demoBtn').hidden=true;$('stopBtn').hidden=false;$('goBtn').disabled=false;
   ['bpm','tol','song','preset','from','to'].forEach(id=>$(id).disabled=true);
   setLive('預備','聽 4 拍，第 5 拍開始吹');
   notifyParent(true);
@@ -552,7 +558,7 @@ function killClicks(r){if(!r||!r.nodes)return;r.nodes.forEach(x=>{try{x.o.onende
 function stopRun(){
   if(run){run.done=true;killClicks(run);run=null;}
   cancelAnimationFrame(raf);
-  $('liveBox').hidden=true;$('stopBtn').hidden=true;$('goBtn').hidden=false;unlockCtl();
+  $('liveBox').hidden=true;$('stopBtn').hidden=true;$('goBtn').hidden=false;$('demoBtn').hidden=false;unlockCtl();
   resetPaint();
 }
 function noteAt(r,pos){return r.R.notes.find(n=>pos>=n.beat-1e-9&&pos<n.beat+n.dur-1e-9);}
@@ -604,8 +610,83 @@ function finish(){
   r.done=true;killClicks(r);cancelAnimationFrame(raf);run=null;
   const res=judge(r.frames,r.amps,r.S,r.beat,r.outLat,r.tol,r.R.events);
   showResult(res);
-  $('liveBox').hidden=true;$('stopBtn').hidden=true;$('goBtn').hidden=false;unlockCtl();
+  $('liveBox').hidden=true;$('stopBtn').hidden=true;$('goBtn').hidden=false;$('demoBtn').hidden=false;unlockCtl();
   notifyParent(false);
+}
+
+
+/* ========== 聽示範（程式合成音；範圍與速度同目前設定） ========== */
+const SYNTH_GAIN=0.22;
+let demo=null;
+function synthNote(t,dur,midi){
+  const f=440*Math.pow(2,(midi-69)/12);
+  const rel=Math.min(0.07,0.2*dur),end=t+dur;
+  const g=ctx.createGain();
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.linearRampToValueAtTime(SYNTH_GAIN,t+Math.min(0.04,0.3*dur));
+  g.gain.setValueAtTime(SYNTH_GAIN,Math.max(t+0.05,end-rel));
+  g.gain.linearRampToValueAtTime(0.0001,end);
+  g.connect(ctx.destination);
+  const o1=ctx.createOscillator(),o2=ctx.createOscillator(),g2=ctx.createGain();
+  o1.type='sine';o1.frequency.value=f;
+  o2.type='sine';o2.frequency.value=f*2;g2.gain.value=0.12;   /* 一點點二倍音，音色較像笛子 */
+  o1.connect(g);o2.connect(g2);g2.connect(g);
+  o1.start(t);o2.start(t);o1.stop(end+0.02);o2.stop(end+0.02);
+  return [o1,o2,g,g2];
+}
+function killDemoNodes(d){if(!d)return;d.nodes.forEach(x=>{try{x.stop&&x.stop();}catch(e){}try{x.disconnect();}catch(e){}});d.nodes=[];}
+function demoUi(on){
+  const b=$('demoBtn');b.classList.toggle('on',on);b.textContent=on?'⏹ 停止示範':'🔊 聽示範';
+  $('goBtn').disabled=on;
+  ['bpm','tol','song','preset','from','to'].forEach(id=>$(id).disabled=on);
+  ['gauge','gText'].forEach(id=>$(id).hidden=on);$('volBar').parentNode.hidden=on;
+  $('liveBox').hidden=!on;
+}
+async function startDemo(){
+  if(run||demo)return;
+  showErr('');
+  closeMic();   /* 示範時麥克風關閉；iPhone 需在點擊內建立 AudioContext */
+  try{
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    if(ctx.state==='suspended')await ctx.resume();
+  }catch(e){showErr('無法播放聲音。請確認手機沒有開靜音，並用 Safari 或 Chrome 開啟。');closeMic();return;}
+  const bpm=parseInt($('bpm').value,10),beat=60/bpm,bpb=R.song.ts[0];
+  const T0=ctx.currentTime+0.4,S=T0+COUNT_IN*beat,TB=R.totalBeats;
+  const nodes=[];
+  for(let k=0;k<COUNT_IN;k++){const c=click(T0+k*beat,k%bpb===0);nodes.push(c.o,c.g);}
+  R.events.forEach(e=>{
+    const len=e.dur*beat,gap=Math.min(0.06,0.15*len);   /* 每個音尾端留一點空隙，同音連吹才分得開 */
+    synthNote(S+e.beat*beat,len-gap,e.midi).forEach(x=>nodes.push(x));
+  });
+  demo={beat,T0,S,TB,nodes,lastBeat:-1,lastHl:-2,done:false,R};
+  resetPaint();$('resCard').hidden=true;lastRes=null;
+  demoUi(true);
+  setLive('預備','聽 4 拍，第 5 拍開始播');
+  notifyParent(true);
+  demoLoop();
+}
+function demoLoop(){
+  if(!demo||demo.done)return;
+  raf=requestAnimationFrame(demoLoop);
+  const d=demo,now=ctx.currentTime;
+  const bi=Math.floor((now-d.T0)/d.beat);
+  if(bi!==d.lastBeat&&bi>=0){
+    d.lastBeat=bi;
+    if(bi<COUNT_IN)setLive(String(COUNT_IN-bi),'預備拍');
+  }
+  const pos=(now-d.S)/d.beat;
+  if(bi>=COUNT_IN&&pos<d.TB){
+    const cur=noteAt({R:d.R},pos),id=cur?cur.i:-1;
+    if(id!==d.lastHl){d.lastHl=id;d.R.notes.forEach(n=>n.hl.setAttribute('opacity',cur&&n===cur?.55:0));
+      if(cur)setLive(cur.rest?'·':jpNum(cur),'第 '+cur.bar+' 小節'+(cur.rest?'（休止）':''));}
+  }
+  if(pos>=d.TB+0.3)stopDemo();
+}
+function stopDemo(){
+  if(!demo)return;
+  demo.done=true;killDemoNodes(demo);demo=null;
+  cancelAnimationFrame(raf);closeMic();
+  demoUi(false);resetPaint();
 }
 
 /* ========== 結果顯示 ========== */
@@ -664,13 +745,14 @@ function notifyParent(on){try{if(window.parent&&window.parent!==window)window.pa
 notifyParent(true);
 function leave(){
   notifyParent(false);
-  stopRun();closeMic();
+  stopRun();stopDemo();closeMic();
   if(history.length>1)history.back();else location.href='game-test.html';
 }
 $('back').addEventListener('click',leave);
 $('goBtn').addEventListener('click',startRun);
 $('stopBtn').addEventListener('click',()=>{stopRun();notifyParent(true);});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&run){stopRun();}});
+$('demoBtn').addEventListener('click',()=>{if(demo)stopDemo();else startDemo();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&run){stopRun();}if(document.hidden&&demo){stopDemo();}});
 window.addEventListener('pagehide',()=>{notifyParent(false);closeMic();});
 $('song').addEventListener('change',()=>{cfg.song=$('song').value;const p=SONGS[cfg.song].presets[0];cfg.from=p[1];cfg.to=p[2];fillSongUi();applyRange();});
 $('preset').addEventListener('change',()=>{const v=$('preset').value;if(v==='')return;const p=SONGS[cfg.song].presets[+v];cfg.from=p[1];cfg.to=p[2];applyRange();});
@@ -683,7 +765,7 @@ $('from').addEventListener('change',onRangeInput);$('to').addEventListener('chan
 fillSongUi();applyRange();fillSongUi();
 
 /* 測試掛鉤（僅供除錯，不影響使用） */
-window.__sp={judge,summarize,describe,detectPitch,ampOnsets,get R(){return R;},get cfg(){return cfg;},applyRange,build,SONGS,drawScore};
+window.__sp={judge,summarize,describe,detectPitch,ampOnsets,get R(){return R;},get cfg(){return cfg;},applyRange,build,SONGS,drawScore,startDemo,stopDemo,get demo(){return demo;}};
 })();
 </script>
 </body>
