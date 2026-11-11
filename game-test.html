@@ -430,6 +430,8 @@ Sfx.probe=function(){
       </div>
       <div class="meter"><div class="row"><span>星星罐</span><span class="num" id="wk-jar-t">9 / 40</span></div><div class="track"><i id="wk-jar-bar" style="width:60%"></i></div></div>
       <button class="btn" id="wk-go"><svg><use href="#n-ocarina"/></svg><span>開始本週練習</span></button>
+      <button class="btn alt" id="song-go"><svg><use href="#n-ocarina"/></svg><span>分段練習・數星星／豬之歌</span></button>
+      <p class="hint">分段練習是測試版：照老師指定的小節吹，次數只記在這支手機，暫不計星星糖。</p>
       <p class="hint">照樂譜吹，音準與節拍全部都對才算一次，系統依任務完成度發星星糖，每週最多 20 顆，兩週的任務可以開一座島（星星罐 40 顆）。</p>
       <p class="hint" id="wk-day"></p>
     </section>
@@ -1033,6 +1035,7 @@ $('game-open').addEventListener('click',()=>{
 });
 $('game-close').addEventListener('click',closeGame);
 $('wk-go').addEventListener('click',()=>{stopBlow();location.href='weekly-practice.html';});
+$('song-go').addEventListener('click',()=>{stopBlow();location.href='song-practice.html';});
 try{const q=new URLSearchParams(location.search).get('n');if(q)$('uname').textContent=q}catch(e){}
 
 /* ===== 陶笛精靈出現並說話（地圖頁）=====
