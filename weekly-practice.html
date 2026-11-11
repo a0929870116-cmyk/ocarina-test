@@ -318,24 +318,35 @@ function badgeOf(r){
    每週預算 BUDGET 顆（兩週＝罐 40 顆＝一座島）；任務份額 Q＝預算×權重÷權重總和；
    每次全對累積 Q÷T 顆，滿一整顆才加進星星罐；完成度上限 1，不會超過預算；週一 00:00（台北）重置，沒拿到的不補發。
    存檔 olm_wk_v2；舊 olm_weekly_v1（{done,perfect}）第一次讀到時搬進來，已累計的次數視為已給過星星糖，不重複發。 */
-const TASKS=[{id:'basic-1-1',name:'基本指法 1-1',weight:1,T:20}];   /* 之後由 Firebase 後台指定每人任務 */
-const TASK_ID='basic-1-1',BUDGET=20,NEED_STAR=40,WK='olm_wk_v2';
-const TASK=TASKS.find(t=>t.id===TASK_ID),GOAL=TASK.T;
+/* 任務清單：每人 1～5 個，各自的目標次數 T 與權重可不同（之後由 Firebase 後台指定；現在先寫在程式裡）。
+   例：[{id:'basic-1-1',name:'基本指法 1-1',weight:1,T:20}] 或 3 個任務 T 各異。每週預算固定 20 顆，依「各任務完成進度」比例發放。 */
+const TASKS=[{id:'basic-1-1',name:'基本指法 1-1',weight:1,T:20}];
+const TASK_ID=(new URLSearchParams(location.search).get('task'))||'basic-1-1',BUDGET=20,NEED_STAR=40,WK='olm_wk_v2';
+const TASK=TASKS.find(t=>t.id===TASK_ID)||TASKS[0],GOAL=TASK.T;
 const WSUM=TASKS.reduce((a,t)=>a+t.weight,0),qOf=t=>BUDGET*t.weight/WSUM;
-function wkKey(){const t=new Date(Date.now()+8*3600e3);t.setUTCDate(t.getUTCDate()-((t.getUTCDay()+6)%7));return t.toISOString().slice(0,10);}
+/* 週界：從這位學生開始的那天起算，每 7 天一週（台北時間 UTC+8），兩週一座島 */
+function todayKey(){return new Date(Date.now()+8*3600e3).toISOString().slice(0,10);}
+function weekIdx(start){return Math.max(0,Math.floor((Date.parse(todayKey()+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/864e5/7));}
 function earned(o){let x=0;TASKS.forEach(t=>{x+=Math.min((o.tasks[t.id]||0)/t.T,1)*qOf(t);});return Math.floor(x+1e-9);}
 function loadWK(){
   let o=null;try{o=JSON.parse(localStorage.getItem(WK)||'null');}catch(e){}
-  const wk=wkKey();
+  let prev=0;
   if(!o||o.v!==2){
     let old=null;try{old=JSON.parse(localStorage.getItem('olm_weekly_v1')||'null');}catch(e){}
-    o={v:2,week:wk,played:(old&&old.done|0)||0,total:(old&&old.perfect|0)||0,tasks:{},given:0};
+    o={v:2,start:todayKey(),week:0,played:(old&&old.done|0)||0,total:(old&&old.perfect|0)||0,tasks:{},given:0};
     TASKS.forEach(t=>{o.tasks[t.id]=0;});
-    if(old&&old.perfect)o.tasks[TASK_ID]=old.perfect|0;
+    if(old&&old.perfect)o.tasks[TASKS[0].id]=old.perfect|0;
     o.given=earned(o);
+  }else{
+    if(typeof o.week==='string'){o.start=o.week;o.week=0;}   /* 08:50 版（週一起算）的存檔：該週一當作開始日 */
+    if(!o.start)o.start=todayKey();
+    prev=o.week|0;
   }
-  if(o.week!==wk){o.week=wk;o.tasks={};o.given=0;}
+  const idx=weekIdx(o.start);
+  if(prev!==idx){o.tasks={};o.given=0;}
+  o.week=idx;
   TASKS.forEach(t=>{if(typeof o.tasks[t.id]!=='number')o.tasks[t.id]=0;});
+  try{localStorage.setItem(WK,JSON.stringify(o));}catch(e){}
   return o;
 }
 let P=loadWK();
@@ -357,10 +368,10 @@ function renderP(){
   const n=P.tasks[TASK_ID],d=Math.min(n,GOAL);
   $('barFill').style.width=(d/GOAL*100)+'%';
   $('doneTxt').textContent='正確 '+d+'／'+GOAL+' 次';
-  $('perfTxt').textContent='總共吹了 '+P.played+' 次　本週星星糖 '+P.given+'／'+BUDGET;
+  $('perfTxt').textContent='總共吹了 '+P.played+' 次　第 '+(P.week+1)+' 週星星糖 '+P.given+'／'+BUDGET;
   $('doneMsg').hidden=n<GOAL;$('doneMsg').textContent='🎉 本週任務完成！（本週正確 '+n+' 次）';
 }
-window.__star={recordPerfect,saveP,earned,wkKey,TASKS,get P(){return P;}};   /* 測試用 */
+window.__star={recordPerfect,saveP,earned,todayKey,weekIdx,loadWK,TASKS,get P(){return P;}};   /* 測試用 */
 renderP();
 
 /* ========== 收音與節拍 ========== */
@@ -496,7 +507,7 @@ function showResult(res){
   }else{
     P.played=(P.played|0)+1;let starMsg='';if(s.perfect){starMsg=recordPerfect();}saveP();renderP();
     if(s.perfect){
-      v.textContent=(P.tasks[TASK_ID]===GOAL?'🎉 恭喜完成本週任務！正確 '+GOAL+' 次達成':'全部都對！本週正確 '+P.tasks[TASK_ID]+' 次 🌟')+starMsg;
+      v.textContent=(P.tasks[TASK_ID]===GOAL?'🎉 恭喜完成本週任務！正確 '+GOAL+' 次達成':'全部都對！本週這個任務正確 '+P.tasks[TASK_ID]+' 次 🌟')+starMsg;
       v.style.color='var(--green)';
     }else{v.textContent='這次還沒全對，不計入正確次數。看看下面哪裡要改';v.style.color='var(--ink)';}
   }

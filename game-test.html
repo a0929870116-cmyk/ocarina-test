@@ -359,8 +359,9 @@ a.btn{text-decoration:none}
     <section class="page card" aria-labelledby="wk-h">
       <div class="sec-head" style="margin:0"><h2 id="wk-h">每週練習</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg></div>
       <div class="live">
-        <p class="kicker">本週任務：基本指法 1-1</p>
+        <p class="kicker" id="wk-k">本週任務：基本指法 1-1</p>
         <p class="big2 num" id="wk-n">0 / 20</p>
+        <p class="hint" id="wk-list"></p>
       </div>
       <div class="meter"><div class="row"><span>星星罐</span><span class="num" id="wk-jar-t">9 / 40</span></div><div class="track"><i id="wk-jar-bar" style="width:60%"></i></div></div>
       <button class="btn" id="wk-go"><svg><use href="#n-ocarina"/></svg><span>開始本週練習</span></button>
@@ -715,17 +716,25 @@ const mname=m=>MN[((m%12)+12)%12]+(Math.floor(m/12)-1);
 let SUCC=12;
 try{const sv=JSON.parse(localStorage.getItem('olm_test_v1')||'null');if(sv){SUCC=sv.succ|0;JAR=Math.max(0,Math.min(NEED,sv.jar|0));}}catch(e){}
 function saveP(){try{localStorage.setItem('olm_test_v1',JSON.stringify({succ:SUCC,jar:JAR}));}catch(e){}}
-function wkKey(){const t=new Date(Date.now()+8*3600e3);t.setUTCDate(t.getUTCDate()-((t.getUTCDay()+6)%7));return t.toISOString().slice(0,10);}
-function wkState(){let n=0,given=0;try{const o=JSON.parse(localStorage.getItem('olm_wk_v2')||'null');
-  if(o&&o.v===2){if(o.week===wkKey()){n=o.tasks['basic-1-1']|0;given=o.given|0;}}
-  else{const w=JSON.parse(localStorage.getItem('olm_weekly_v1')||'null');if(w&&typeof w.perfect==='number'){n=w.perfect;given=Math.min(w.perfect,20);}}}catch(e){}
-  return {n,given};}
+/* 任務清單與週界要和 weekly-practice.html 一致：每人 1～5 個任務、各自目標次數；週界從學生開始日起算 */
+const WK_TASKS=[{id:'basic-1-1',name:'基本指法 1-1',weight:1,T:20}];
+function todayKey(){return new Date(Date.now()+8*3600e3).toISOString().slice(0,10);}
+function weekIdx(start){return Math.max(0,Math.floor((Date.parse(todayKey()+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/864e5/7));}
+function wkState(){let tasks={},given=0,week=0;try{const o=JSON.parse(localStorage.getItem('olm_wk_v2')||'null');
+  if(o&&o.v===2){const st=o.start||(typeof o.week==='string'?o.week:todayKey()),prev=typeof o.week==='number'?o.week:0,idx=weekIdx(st);week=idx;
+    if(prev===idx){tasks=o.tasks||{};given=o.given|0;}}
+  else{const w=JSON.parse(localStorage.getItem('olm_weekly_v1')||'null');if(w&&typeof w.perfect==='number'){tasks[WK_TASKS[0].id]=w.perfect;given=Math.min(w.perfect,20);}}}catch(e){}
+  return {tasks,given,week};}
 function renderWeekly(){
-  const W=wkState(),n=W.n;
-  const e=$('wk-n');if(e)e.textContent=Math.min(n,20)+' / 20'+(n>20?'（累計 '+n+'）':'');
+  const W=wkState(),one=WK_TASKS.length===1,t0=WK_TASKS[0];
+  const e=$('wk-n');
+  if(e){if(one){const n=W.tasks[t0.id]|0;e.textContent=Math.min(n,t0.T)+' / '+t0.T+(n>t0.T?'（本週 '+n+' 次）':'');}
+    else{let x=0,w=0;WK_TASKS.forEach(t=>{x+=Math.min((W.tasks[t.id]|0)/t.T,1)*t.weight;w+=t.weight;});e.textContent='完成度 '+Math.round(x/w*100)+'%';}}
+  const k=$('wk-k');if(k)k.textContent=one?'本週任務：'+t0.name:'本週任務（'+WK_TASKS.length+' 個）';
+  const l=$('wk-list');if(l)l.textContent=one?'':WK_TASKS.map(t=>t.name+' '+Math.min(W.tasks[t.id]|0,t.T)+'／'+t.T).join('　');
   const t=$('wk-jar-t');if(t)t.textContent=JAR+' / '+NEED;
   const b=$('wk-jar-bar');if(b)b.style.width=(JAR/NEED*100)+'%';
-  const dd=$('wk-day');if(dd)dd.textContent='本週星星糖 '+W.given+' ／ 20。';
+  const dd=$('wk-day');if(dd)dd.textContent='第 '+(W.week+1)+' 週星星糖 '+W.given+' ／ 20。';
 }
 function renderProgress(){
   renderWeekly();
