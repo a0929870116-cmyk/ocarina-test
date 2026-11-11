@@ -428,15 +428,11 @@ a.btn{text-decoration:none}
         <div class="info">
           <p class="kicker">精靈的衣櫥</p>
           <h2 id="sp-h">穿戴中：草帽</h2>
-          <p class="hint">用金幣幫精靈換裝；稀有道具要用小遊戲掉落的元素合成。</p>
+          <p class="hint">用金幣幫精靈換裝。小遊戲掉落的晶體，拿去「飛行船」升級設備。</p>
         </div>
       </div>
     </section>
     <section class="page card" aria-label="道具">
-      <div class="tabs" id="shop-mode">
-        <button aria-selected="true" data-m="buy">金幣兌換</button>
-        <button aria-selected="false" data-m="craft">元素合成</button>
-      </div>
       <div id="buy-pane" style="display:flex;flex-direction:column;gap:14px">
         <div class="tabs" role="tablist" id="shop-tabs">
           <button role="tab" aria-selected="true" data-g="head">頭部</button>
@@ -445,12 +441,6 @@ a.btn{text-decoration:none}
           <button role="tab" aria-selected="false" data-g="more">披風・背景</button>
         </div>
         <div class="grid2" id="shop-grid"></div>
-      </div>
-      <div id="craft-pane" hidden style="display:flex;flex-direction:column;gap:14px">
-        <p class="hint">玩小遊戲過關，會掉落該島的元素；全對多掉一顆稀有元素。</p>
-        <div class="elems" id="elems"></div>
-        <div class="sec-head" style="margin:0"><h2 style="font-size:18px">配方</h2><span class="rule"></span></div>
-        <div class="list" id="recipes"></div>
       </div>
     </section>
   </div>
@@ -629,9 +619,8 @@ const SHOP=[
  {id:'bg_island',g:'more',name:'浮空島',price:30,fn:''},
  {id:'bg_rcloud',g:'more',name:'彩虹雲',price:30,fn:''}
 ];
-const CRAFTONLY=['head_band','staff','potion','pet_fox'];
 function drawShop(g){
-  $('shop-grid').innerHTML=SHOP.filter(x=>x.g===g&&!CRAFTONLY.includes(x.id)).map(x=>{
+  $('shop-grid').innerHTML=SHOP.filter(x=>x.g===g).map(x=>{
     let act;
     if(x.rare)act='<button class="btn alt" disabled style="opacity:.7">未解鎖</button>';
     else if(x.worn)act='<button class="btn alt" data-t="這是示範稿">穿戴中</button>';
@@ -644,41 +633,6 @@ function drawShop(g){
 document.querySelectorAll('#shop-tabs button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#shop-tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));drawShop(b.dataset.g);}));
 drawShop('head');
-
-/* 元素合成（示範資料；成品與配方皆未定案） */
-const ELEMS=[{id:'dust',name:'星塵',c:'#C9A0E8',n:5},{id:'water',name:'月光水',c:'#7CC6E8',n:3},{id:'rainbow',name:'彩虹絲',c:'#F4A261',n:2},{id:'note',name:'音符晶',c:'#F7C948',n:1,rare:1},{id:'cloud',name:'雲絮',c:'#DDE7F2',n:0,lock:1}];
-const RECIPES=[
- {id:'head_band',name:'星月髮箍',need:{dust:3,water:2}},
- {id:'potion',name:'紫色藥水瓶',need:{water:2,rainbow:2}},
- {id:'staff',name:'藤蔓藍水晶法杖',need:{dust:4,note:2}},
- {id:'pet_fox',name:'白狐',need:{cloud:3,dust:2},lock:'需要第 4 島的雲絮'}
-];
-const made={};
-const eName=id=>ELEMS.find(e=>e.id===id).name;
-function gem(c){return '<svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><polygon points="16,3 28,12 23,29 9,29 4,12" fill="'+c+'" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M4 12H28M16 3L12 12L16 29L20 12Z" stroke="var(--ink)" stroke-width="1.2" fill="none" opacity=".45"/></svg>';}
-function drawCraft(){
-  $('elems').innerHTML=ELEMS.filter(e=>!e.lock).map(e=>'<div class="el'+(e.rare?' rare':'')+'">'+gem(e.c)+'<b>'+e.name+'</b><span class="num">×'+e.n+'</span></div>').join('')
-    +'<div class="el off"><b>？</b><span>還有 6 種在未開的島</span></div>';
-  $('recipes').innerHTML=RECIPES.map(r=>{
-    const have=Object.entries(r.need).every(([k,v])=>ELEMS.find(e=>e.id===k).n>=v);
-    const need=Object.entries(r.need).map(([k,v])=>eName(k)+' '+ELEMS.find(e=>e.id===k).n+'／'+v).join('　');
-    let act;
-    if(made[r.id])act='<button class="btn alt" disabled>已合成</button>';
-    else if(r.lock)act='<button class="btn alt" disabled>未解鎖</button>';
-    else if(!have)act='<button class="btn alt" disabled>材料不足</button>';
-    else act='<button class="btn" data-r="'+r.id+'">合成</button>';
-    const pic='<img src="'+IMG['it_'+r.id]+'" alt="">';
-    return '<div class="row-item rec"><div class="pic">'+pic+'</div><div class="tx"><b>'+r.name+'</b><small>'+(r.lock||need)+'</small></div>'+act+'</div>';
-  }).join('');
-  document.querySelectorAll('#recipes [data-r]').forEach(b=>b.addEventListener('click',()=>{
-    const r=RECIPES.find(x=>x.id===b.dataset.r);
-    Object.entries(r.need).forEach(([k,v])=>{ELEMS.find(e=>e.id===k).n-=v;});
-    made[r.id]=1;toast('合成了「'+r.name+'」（示範）');drawCraft();}));
-}
-drawCraft();
-document.querySelectorAll('#shop-mode button').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('#shop-mode button').forEach(x=>x.setAttribute('aria-selected',x===b));
-  $('buy-pane').hidden=b.dataset.m!=='buy';$('craft-pane').hidden=b.dataset.m!=='craft';}));
 
 /* 星星足跡與鑰匙碎片資料（顯示在島嶼頁） */
 const RN=['I','II','III','IV','V','VI','VII','VIII','IX'];
