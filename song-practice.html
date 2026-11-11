@@ -146,6 +146,14 @@ const ACC_PAD=1.0;   /* 有升降記號的音符，左邊多留的寬度（單�
 const W=340,CLEF_W=46,ROW_H=106,STEP=4,LINE_GAP=8,AVAIL=W-CLEF_W-6;
 function el(tag,attrs,parent,text){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;if(parent)parent.appendChild(e);return e;}
 function stepOf(n){return (4+n.oct)*7+(n.deg-1)-(4*7+2);}   /* 相對 E4（下加一線）的音階級數；譜面低一個八度 */
+/* 簡譜時值記號：8 分下加一條線、16 分兩條；2 拍以上在右邊加「－」（每多一拍一條）；附點加「·」 */
+function durMarks(n,x,ty,g,ink){
+  const d=n.dur,lines=d<=0.25+1e-9?2:d<=0.75+1e-9?1:0;
+  for(let k=0;k<lines;k++)el('line',{x1:x-6,x2:x+6,y1:ty+4+k*3.5,y2:ty+4+k*3.5,stroke:ink,'stroke-width':1.5,'stroke-linecap':'round'},g);
+  if([0.75,1.5,3].some(v=>Math.abs(d-v)<1e-9))el('circle',{cx:x+(n.acc?10:9),cy:ty-4,r:1.7,fill:ink},g);
+  if(d>=2-1e-9){const m=Math.round(d)-1;for(let k=0;k<m;k++)el('line',{x1:x+10+k*13,x2:x+19+k*13,y1:ty-5,y2:ty-5,stroke:ink,'stroke-width':1.8,'stroke-linecap':'round'},g);}
+  return lines;
+}
 function wOf(n){let w=n.dur>=2?1.7:n.dur>=1?1.3:n.dur>=0.75?1.05:n.dur>=0.5?0.95:0.85;if(!n.rest&&n.acc)w+=ACC_PAD;return w;}
 function barMin(b){return 14+b.notes.reduce((a,n)=>a+wOf(n),0)*15;}
 let R=null;            /* 目前範圍 build() 的結果 */
@@ -207,6 +215,7 @@ function drawScore(){
           if(n.dur<1)el('circle',{cx:x-3,cy:my+3,r:1.8,fill:ink},gEl);}
         n.head=null;n.stems=[];
         n.num=el('text',{x:x,y:ty,'font-size':15,'font-weight':800,'text-anchor':'middle',fill:ink},gEl,'0');
+        durMarks(n,x,ty,gEl,ink);
         n.badge=el('text',{x:x,y:ty+22,'font-size':10.5,'font-weight':800,'text-anchor':'middle',fill:ink2},gEl,'');
         n.gEl=gEl;return;
       }
@@ -237,7 +246,8 @@ function drawScore(){
         }
       }
       n.num=el('text',{x:x,y:ty,'font-size':15,'font-weight':800,'text-anchor':'middle',fill:ink},gEl,jpNum(n));
-      if(n.oct===-1)el('circle',{cx:x,cy:ty+5,r:1.7,fill:ink},gEl);
+      const nl=durMarks(n,x,ty,gEl,ink);
+      if(n.oct===-1)el('circle',{cx:x,cy:ty+5+nl*3.5,r:1.7,fill:ink},gEl);
       if(n.oct>=1)el('circle',{cx:x,cy:ty-15,r:1.7,fill:ink},gEl);
       if(n.oct>=2)el('circle',{cx:x,cy:ty-21,r:1.7,fill:ink},gEl);
       n.badge=el('text',{x:x,y:ty+22,'font-size':10.5,'font-weight':800,'text-anchor':'middle',fill:ink2},gEl,'');
