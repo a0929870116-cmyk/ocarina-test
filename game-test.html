@@ -291,11 +291,21 @@ a.btn{text-decoration:none}
 .tuner .zone{left:25%;width:50%}
 .tuner i{transition:left .08s linear}
 .tuner .nd{opacity:.3}
+/* 陶笛精靈（地圖頁）：浮在右下角，會說一句話；點精靈換一句 */
+.elf{position:fixed;right:max(10px,env(safe-area-inset-right,0px),calc((100vw - 520px)/2 + 10px));bottom:calc(92px + env(safe-area-inset-bottom,0px));z-index:35;display:flex;align-items:flex-end;gap:6px;pointer-events:none;max-width:calc(100vw - 20px)}
+.elf-i{pointer-events:auto;flex:none;width:68px;height:68px;border-radius:50%;border:2.5px solid var(--ink);background:var(--vellum-2);box-shadow:0 0 0 2px var(--gold),0 5px 0 var(--shadow);display:grid;place-items:end center;overflow:hidden;padding:0;cursor:pointer;animation:elfbob 2.6s ease-in-out infinite}
+.elf-i img{width:88%;display:block}
+.elf-b{pointer-events:auto;order:-1;position:relative;max-width:min(230px,calc(100vw - 110px));background:var(--vellum-2);border:2.5px solid var(--ink);border-radius:14px;padding:9px 12px;font-size:15px;line-height:1.55;font-weight:700;box-shadow:0 4px 0 var(--shadow);animation:elfpop .3s ease-out both;margin-bottom:14px}
+.elf-b::after{content:"";position:absolute;right:-9px;bottom:10px;width:14px;height:14px;background:var(--vellum-2);border-right:2.5px solid var(--ink);border-top:2.5px solid var(--ink);transform:rotate(45deg)}
+.elf-b[hidden]{display:none}
+@keyframes elfbob{50%{transform:translateY(-4px)}}
+@keyframes elfpop{from{opacity:0;transform:translateY(8px) scale(.95)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.elf-i,.elf-b{animation:none}}
 </style>
 <script src="sfx.js"></script>
 <script>if(window.Sfx){
 Sfx.auto('.nav button','nav');
-Sfx.auto('.btn,button.back,.bk-back,#q-lock,#q-dex,#q-story,.kp-close','tap');
+Sfx.auto('.btn,button.back,.bk-back,#q-lock,#q-dex,#q-story,.kp-close,#elf-i','tap');
 /* 收音中靜音：舊長音吹奏、內嵌遊樂場的麥克風；互動觀察開啟時另外在 onOpen／onClose 切換 */
 Sfx.probe=function(){
   try{if(typeof B!=='undefined'&&B.on)return true;}catch(e){}
@@ -377,6 +387,7 @@ Sfx.probe=function(){
 
   <!-- ===== 地圖 ===== -->
   <div class="view" id="v-map">
+    <div class="elf" id="elf"><div class="elf-b" id="elf-b" hidden role="status"></div><button type="button" class="elf-i" id="elf-i" aria-label="陶笛精靈，點一下聽他說話"><img alt=""></button></div>
     <section aria-labelledby="map-h">
       <div class="sec-head"><h2 id="map-h">星空地圖</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg><span class="cnt num">3 / 12</span></div>
       <div class="page frame">
@@ -607,6 +618,7 @@ function show(v){
   const hi=(v==='isle'||v==='dex')?'map':v;
   document.querySelectorAll('.nav button').forEach(b=>{if(b.dataset.go===hi)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   toParent({type:'practice',on:v==='practice'});   /* 進練習頁關背景音樂，離開再恢復 */
+  try{elfOnShow(v);}catch(e){}
   if(v==='ship')openShip();
   window.scrollTo(0,0);
 }
@@ -1022,6 +1034,39 @@ $('game-open').addEventListener('click',()=>{
 $('game-close').addEventListener('click',closeGame);
 $('wk-go').addEventListener('click',()=>{stopBlow();location.href='weekly-practice.html';});
 try{const q=new URLSearchParams(location.search).get('n');if(q)$('uname').textContent=q}catch(e){}
+
+/* ===== 陶笛精靈出現並說話（地圖頁）=====
+   只在地圖頁出現（練習頁要收音，不出現）；一律不劇透：不提紫星星的真相與走音怪。
+   每次進地圖頁：這次造訪第一次→打招呼＋星星罐進度；之後隔 60 秒以上才再說一句；點精靈換一句。 */
+const ELF={t:0,last:0,i:-1,shown:false,TIPS:[
+  '慢慢吹，吹準比吹快更重要。',
+  '吹不準也沒關係，我陪你再試一次！',
+  '每吹準一次，星星就多想起一點點旋律。',
+  '練習前先深呼吸，聲音會更穩喔。',
+  '手指蓋緊每一個孔，音才會漂亮。',
+  '吹累了就休息一下，明天再來也可以。',
+  '準是本領，用心是靈魂。'
+]};
+(function(){const a=document.querySelector('.avatar img'),i=$('elf-i').querySelector('img');if(a)i.src=a.src;})();
+function elfProgress(){return JAR>=NEED?'星星罐滿了！快去看看新的島嶼吧。':'星星罐有 '+JAR+' 顆了，再 '+(NEED-JAR)+' 顆就能開啟第 '+NEXT+' 島！';}
+function elfLine(first){
+  if(first)return '嗨！我是陶笛精靈，今天也一起練習吧！'+elfProgress();
+  ELF.i=(ELF.i+1+Math.floor(Math.random()*3))%(ELF.TIPS.length+1);   /* 帶一點隨機，避免固定順序 */
+  return ELF.i===ELF.TIPS.length?elfProgress():ELF.TIPS[ELF.i];
+}
+function elfSay(first){
+  const b=$('elf-b');b.textContent=elfLine(first);b.hidden=false;ELF.last=Date.now();
+  clearTimeout(ELF.t);ELF.t=setTimeout(()=>{b.hidden=true;},first?9000:7000);
+}
+function elfOnShow(v){
+  const b=$('elf-b');
+  if(v!=='map'){clearTimeout(ELF.t);b.hidden=true;return;}
+  let sess=false;try{sess=sessionStorage.getItem('olm_elf')==='1';}catch(e){}
+  if(!sess){try{sessionStorage.setItem('olm_elf','1');}catch(e){}clearTimeout(ELF.t);ELF.t=setTimeout(()=>elfSay(true),900);}
+  else if(Date.now()-ELF.last>60000){clearTimeout(ELF.t);ELF.t=setTimeout(()=>elfSay(false),900);}
+}
+$('elf-i').addEventListener('click',()=>elfSay(false));
+$('elf-b').addEventListener('click',()=>{$('elf-b').hidden=true;});
 show(location.hash.slice(1));
 </script>
 
