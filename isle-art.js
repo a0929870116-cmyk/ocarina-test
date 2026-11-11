@@ -114,10 +114,30 @@ const CRY={
 12:c=>GS('M10 3H22L29 10V22L22 29H10L3 22V10Z',c)+GS('M12 10H20L22 12V20L20 22H12L10 20V12Z',F(c,.3),1.2)+GL('M10 3L12 10M22 3L20 10M29 10L22 12M29 22L22 20M22 29L20 22M10 29L12 22M3 22L10 20M3 10L10 12')+`<path d="M13 12H17L13 16Z" fill="#fff" opacity=".6"/>`
 };
 const byN=n=>DATA[n-1];
+/* ---- 凱爾特風格：螺旋紋樣＋編繩圓框 ---- */
+const GOLD='#d9b25b';
+const spiralD=(cx,cy,r,turns,flip)=>{let d='';const n=36;for(let i=0;i<=n;i++){const t=i/n,a=(flip?-1:1)*t*turns*Math.PI*2,rr=.6+(r-.6)*t;d+=(i?'L':'M')+(cx+Math.cos(a)*rr).toFixed(1)+','+(cy+Math.sin(a)*rr).toFixed(1);}return d;};
+const SP=(cx,cy,r,flip)=>`<path d="${spiralD(cx,cy,r,1.9,flip)}" fill="none" stroke="${K}" stroke-width="3.4" stroke-linecap="round"/><path d="${spiralD(cx,cy,r,1.9,flip)}" fill="none" stroke="${GOLD}" stroke-width="1.7" stroke-linecap="round"/>`;
+const DECOR={
+ plant:{1:[[24,51,3.6],[41,51,3.6,1]],2:[[46,51,3.2],[18,51,3.2,1]],3:[[32,45,5]],4:[[32,49,3.6]],5:[[48,10,5]],6:[[32,35,6]],7:[[45,49,3.4],[19,49,3.4,1]],8:[[32,52,4]],9:[[24,53,3.6]],10:[[32,50,3.6]],11:[[32,51,4]],12:[[22,47,3.6],[41,47,3.6,1]]},
+ animal:{1:[[32,47,4]],2:[[34,36,6],[54,36,3.6,1]],3:[[32,40,5]],4:[[20,39,4.5],[44,39,4.5,1]],5:[[32,46,4]],6:[[32,17,6]],7:[[14,41,4],[50,41,4,1]],8:[[10,18,3.2],[54,18,3.2,1]],9:[[43,22,5]],10:[[32,45,5]],11:[[30,44,6]],12:[[14,28,4],[50,28,4,1]]}
+};
+const ringFrame=()=>{
+  const cx=32,cy=32,R=29,a=1.5,k=10,N=200,pa=[],pb=[];
+  for(let i=0;i<=N;i++){const th=i/N*Math.PI*2,d=Math.sin(th*k)*a;
+    pa.push((cx+Math.cos(th)*(R+d)).toFixed(1)+','+(cy+Math.sin(th)*(R+d)).toFixed(1));
+    pb.push((cx+Math.cos(th)*(R-d)).toFixed(1)+','+(cy+Math.sin(th)*(R-d)).toFixed(1));}
+  const da='M'+pa.join('L')+'Z',db='M'+pb.join('L')+'Z';
+  const st=d=>`<path d="${d}" fill="none" stroke="${K}" stroke-width="3.4"/><path d="${d}" fill="none" stroke="${GOLD}" stroke-width="1.6"/>`;
+  let o=`<circle cx="32" cy="32" r="27" fill="#f9f0d8"/>`+st(da)+st(db);
+  for(let j=1;j<2*k;j+=2){const th=j*Math.PI/k;o+=`<clipPath id="cf${j}"><circle cx="${(cx+Math.cos(th)*R).toFixed(1)}" cy="${(cy+Math.sin(th)*R).toFixed(1)}" r="3.6"/></clipPath><g clip-path="url(#cf${j})">${st(da)}</g>`;}
+  return o;
+};
+const celtic=(kind,n)=>ringFrame()+`<g transform="translate(8.5 8.5) scale(.735)">${(kind==='plant'?PLANT:ANIMAL)[n]()}${DECOR[kind][n].map(d=>SP(d[0],d[1],d[2],d[3])).join('')}</g>`;
 window.ISLE_ART={
   data:DATA,
-  plant:(n,px)=>svg(PLANT[n](),px),
-  animal:(n,px)=>svg(ANIMAL[n](),px),
+  plant:(n,px)=>svg(celtic('plant',n),px),
+  animal:(n,px)=>svg(celtic('animal',n),px),
   crystal:(n,px)=>svg(CRY[n](byN(n).c),px,'0 0 32 32'),
   crystalInner:n=>CRY[n](byN(n).c),
   crystalByColor:(c,px)=>{const d=DATA.find(x=>x.c===c);return d?svg(CRY[d.n](d.c),px,'0 0 32 32'):''}
