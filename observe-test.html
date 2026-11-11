@@ -13,12 +13,13 @@ small{color:var(--ink-2)}
 <h1>互動觀察測試頁</h1>
 <p>直接進入圖鑑的互動觀察，不用經過圖鑑。請用 Safari／Chrome 開（不要在 LINE 內開）。</p>
 <button class="go" id="g5">🌿 螢光蕨（吹陶笛）</button>
+<button class="go" id="g2" style="background:#3a4f8a">🪷 月光睡蓮（吹穩一個音）</button>
 <button class="go b" id="g9">🎵 音符花（點一點）</button>
 <small>進去後按「開始吹奏」並允許麥克風；沒麥克風可按住畫面。左上「‹」返回這一頁。</small>
 <script src="isle-art.js"></script>
 <script src="dex-observe.js"></script>
 <script>
-[5,9].forEach(function(n){
+[2,5,9].forEach(function(n){
   document.getElementById('g'+n).addEventListener('click',function(){
     DexObserve.open(n,{note:ISLE_ART.info(n).pNote});
   });

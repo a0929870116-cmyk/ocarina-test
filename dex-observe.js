@@ -1,7 +1,7 @@
 /* 圖鑑「互動觀察」(C)：從 A 圖鑑書頁的植物卡進入。
    第 9 島「音符花」（點一下發亮的花，依序彈出一小段旋律；不需麥克風）。
    第 5 島「螢光蕨」（對著新芽吹陶笛，綠光隨節奏跳動，吹滿螢火蟲飛出；沒麥克風→按住畫面代替）。
-   月光睡蓮（2）之後加進來。
+   第 2 島「月光睡蓮」（吹任何音、音高穩住就慢慢開花，吹滿月亮魚躍出；不指定音；沒麥克風→按住畫面代替）。
    規則（使用者 11/11 19:40）：吹滿／彈完只有動畫，沒有任何獎勵數字；不記錄完成、不新增存檔。
    用法：DexObserve.has(n) / open(n,{note,onOpen,onClose}) / close() / isOpen() */
 (function(){
@@ -98,7 +98,7 @@ var el=null,S=null,opts=null,openFlag=false;
 
 function build(){
   if(el)return;
-  var st=document.createElement('style');st.textContent=CSS+FCSS;document.head.appendChild(st);
+  var st=document.createElement('style');st.textContent=CSS+FCSS+LCSS;document.head.appendChild(st);
   el=document.createElement('div');el.id='ob';el.hidden=true;
   el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-labelledby','ob-title');
   el.innerHTML=
@@ -225,8 +225,8 @@ function fernSVG(){
 }
 
 var F=null,raf=0;                     /* 螢光蕨狀態 */
-var TEST={rms:null};                  /* 測試用：給值就當麥克風音量 */
-function fernNew(){return {isFern:true,prog:0,done:false,g:0,pulse:0,hold:false,holdT:0,holdOn:0,mic:null,micErr:'',calib:0,floor:0,floorN:0,thr:.02,avg:0,lastOn:-1,t:0,beats:0,last:0,blowT:0};}
+var TEST={rms:null,f:null};                  /* 測試用：給值就當麥克風音量 */
+function fernNew(kind){return {kind:kind||'fern',ref:0,seg:0,gap:0,hist:[],msg:'',isFern:true,prog:0,done:false,g:0,pulse:0,hold:false,holdT:0,holdOn:0,mic:null,micErr:'',calib:0,floor:0,floorN:0,thr:.02,avg:0,lastOn:-1,t:0,beats:0,last:0,blowT:0};}
 
 function renderFern(){
   var bars='';for(var i=0;i<9;i++)bars+='<i></i>';
@@ -248,10 +248,12 @@ function renderFern(){
 }
 function fernHint(msg){
   var h=$('#ob-hint',el),sub=$('#fr-sub',el),b=$('#fr-start',el);if(!h)return;
-  if(F.done){h.textContent='河邊的燈火，亮起來了！';sub.textContent='';b.textContent='再吹一次';return;}
+  var lily=F.kind==='lily';
+  if(F.done){h.textContent=lily?'睡蓮開了，月亮魚跳出來！':'河邊的燈火，亮起來了！';sub.textContent='';b.textContent='再吹一次';return;}
   b.textContent=F.mic?'再吹一次':'開始吹奏';
   if(msg){h.textContent=msg;}
   else if(F.calib>0)h.textContent='先安靜一下…';
+  else if(lily)h.textContent=F.mic?'吹一個音，穩穩地吹。花苞會慢慢打開。':'按「開始吹奏」，吹一個音，穩穩地吹。';
   else h.textContent=F.mic?'對著新芽，吹一段陶笛。吹越久，長越大。':'按「開始吹奏」，對著新芽吹陶笛。';
   sub.textContent=F.mic?'':(F.micErr||'沒有麥克風？也可以按住畫面代替。');
 }
@@ -266,7 +268,7 @@ function startMic(){
   var c=audio();
   nav.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}).then(function(stream){
     if(!openFlag||!F){stream.getTracks().forEach(function(t){t.stop();});return;}
-    var an=c.createAnalyser();an.fftSize=1024;
+    var an=c.createAnalyser();an.fftSize=2048;
     var src=c.createMediaStreamSource(stream);src.connect(an);   /* 不接到喇叭 */
     F.mic={stream:stream,an:an,src:src,buf:new Float32Array(an.fftSize)};
     F.calib=.5;F.floor=0;F.floorN=0;F.micErr='';fernHint();
@@ -282,11 +284,11 @@ function readRms(){
   var s=0;for(var i=0;i<b.length;i++)s+=b[i]*b[i];
   return Math.sqrt(s/b.length);
 }
-function fernClear(){var st=$('#ob-stage',el);if(!st)return;Array.prototype.forEach.call(st.querySelectorAll('.fr-fly'),function(n){n.remove();});}
-function fernReset(){fernClear();var o=F,r=fernNew();r.mic=o.mic;r.thr=o.thr;r.avg=o.avg;F=r;var st=$('#ob-stage',el);if(st)st.classList.remove('beat');fernHint();}
+function fernClear(){var st=$('#ob-stage',el);if(!st)return;Array.prototype.forEach.call(st.querySelectorAll('.fr-fly,.lt-fish'),function(n){n.remove();});}
+function fernReset(){fernClear();var o=F,r=fernNew(o.kind);r.mic=o.mic;r.thr=o.thr;r.avg=o.avg;F=r;var st=$('#ob-stage',el);if(st)st.classList.remove('beat');fernHint();}
 
 function fernTick(ts){
-  if(!openFlag||!F||!F.isFern){raf=0;return;}
+  if(!openFlag||!F||F.kind!=='fern'){raf=0;return;}
   raf=requestAnimationFrame(fernTick);
   var dt=F.last?Math.min(.1,(ts-F.last)/1000):.016;F.last=ts;F.t+=dt;
   var st=$('#ob-stage',el);if(!st)return;
@@ -335,8 +337,142 @@ function fernFinale(){
   }
 }
 
+
+/* ================= 月光睡蓮（第 2 島）=================
+   吹任何音（不指定音）：音高穩住（±25 音分內、持續 0.4 秒後開始算）→ 花苞慢慢綻開；累計 6 秒盛開，月亮魚躍出。
+   音飄了或停下來就暫停（不倒退）。只有動畫：不給獎勵、不記錄、不新增存檔。沒麥克風→按住畫面代替。 */
+var LCSS=''
++'.lt-stage{background:linear-gradient(#090e2c 0%,#1a2a5c 48%,#143a56 100%)}'
++'.lt-water{position:absolute;left:0;right:0;bottom:0;height:34%;background:linear-gradient(#1a4a6a,#0c2a40);border-top:2px solid rgba(190,225,255,.5);pointer-events:none}'
++'.lt-flower{filter:brightness(calc(.82 + var(--g)*.45)) drop-shadow(0 0 calc(2px + var(--g)*14px) rgba(200,215,255,calc(.15 + var(--g)*.85)))}'
++'.lt-pet{--b:min(1,max(0,var(--p,0)*1.15 - var(--o,0)));transform-origin:0 0;transform:rotate(calc(var(--a)*(.14 + .86*var(--b)))) scale(calc(.62 + .38*var(--b)));transition:transform .2s linear;fill:url(#ltg);stroke:#7b6aa8;stroke-width:1.6;stroke-linejoin:round}'
++'.lt-core{fill:#ffe9a8;opacity:calc(.25 + var(--g)*.75)}'
++'.lt-rip{fill:none;stroke:rgba(210,235,255,.55);stroke-width:1.6;opacity:0;transform-box:fill-box;transform-origin:center}'
++'.lt-stage.calm .lt-rip{animation:ltrip 2.2s ease-out infinite;animation-delay:var(--d,0s)}'
++'.lt-fish{position:absolute;left:14%;top:64%;width:34px;height:22px;pointer-events:none;animation:ltjump 3.4s ease-in-out infinite both}'
++'.lt-sp i{background:#e8f4ff;box-shadow:0 0 12px 5px rgba(170,210,255,.9)}'
++'@keyframes ltrip{0%{transform:scale(.4);opacity:.9}100%{transform:scale(1.5);opacity:0}}'
++'@keyframes ltjump{0%{transform:translate(0,0) rotate(-50deg) scale(.6);opacity:0}6%{opacity:1}32%{transform:translate(52px,-96px) rotate(-6deg) scale(1)}52%{transform:translate(104px,2px) rotate(58deg) scale(.7);opacity:1}58%,100%{transform:translate(108px,8px) rotate(70deg) scale(.5);opacity:0}}'
++'@media (prefers-reduced-motion:reduce){.lt-pet{transition:none}.lt-stage.calm .lt-rip,.lt-fish{animation:none}}';
+
+function petal(a,o,len){
+  var l=len;
+  return '<path class="lt-pet" style="--a:'+a+'deg;--o:'+o+'" d="M0 0C'+(-l*.24)+' '+(-l*.28)+' '+(-l*.22)+' '+(-l*.8)+' 0 '+(-l)+'C'+(l*.22)+' '+(-l*.8)+' '+(l*.24)+' '+(-l*.28)+' 0 0Z"/>';
+}
+function lilySVG(){
+  var C=2*Math.PI*122,pet='';
+  [-78,-52,-26,0,26,52,78].forEach(function(a,i){pet+=petal(a,(Math.abs(a)/78*.08).toFixed(2),66);});
+  [-52,-26,0,26,52].forEach(function(a,i){pet+=petal(a,(.1+Math.abs(a)/52*.08).toFixed(2),52);});
+  return '<svg class="fr-svg" viewBox="0 0 300 280" aria-hidden="true"><defs>'
+   +'<linearGradient id="ltg" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#e6d3ff"/><stop offset="1" stop-color="#ffffff"/></linearGradient></defs>'
+   +'<circle class="fr-ring" cx="150" cy="140" r="122"/>'
+   +'<circle class="fr-prog" id="fr-prog" cx="150" cy="140" r="122" transform="rotate(-90 150 140)" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+C.toFixed(1)+'"/>'
+   +'<ellipse class="lt-rip" style="--d:0s" cx="150" cy="204" rx="70" ry="9"/><ellipse class="lt-rip" style="--d:.7s" cx="150" cy="204" rx="70" ry="9"/><ellipse class="lt-rip" style="--d:1.4s" cx="150" cy="204" rx="70" ry="9"/>'
+   +'<ellipse cx="86" cy="214" rx="38" ry="8.5" fill="#2f7a54" stroke="#1d4d36" stroke-width="1.6"/><ellipse cx="216" cy="216" rx="34" ry="8" fill="#2f7a54" stroke="#1d4d36" stroke-width="1.6"/>'
+   +'<ellipse cx="150" cy="206" rx="62" ry="10" fill="#2f7a54" stroke="#1d4d36" stroke-width="1.6"/>'
+   +'<g class="lt-flower" transform="translate(150 200)">'+pet+'<circle class="lt-core" cx="0" cy="-8" r="9"/></g></svg>';
+}
+function fishHTML(){
+  return '<svg viewBox="0 0 34 22" width="34" height="22" aria-hidden="true"><path d="M3 11C8 2 20 2 26 9L33 3V19L26 13C20 20 8 20 3 11Z" fill="#dfeaf5" stroke="#4a6a8a" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 7.5q-2.5 3.5 0 7" fill="none" stroke="#ffe38a" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="9.5" r="1.1" fill="#2a3a5a"/></svg>';
+}
+
+/* 音高偵測：正規化自相關（同音準測試頁的做法）；回傳 {f,c} 或 null */
+function detectPitch(x,sr){
+  var n=x.length,minLag=Math.max(2,Math.floor(sr/3500)),maxLag=Math.min(Math.floor(sr/180),(n>>1)-1),m=n-maxLag,i,lag;
+  var e0=0;for(i=0;i<m;i++)e0+=x[i]*x[i];
+  if(e0<1e-9)return null;
+  var e1=0;for(i=0;i<m;i++)e1+=x[i+minLag]*x[i+minLag];
+  var c=new Float32Array(maxLag+2),mx=-1;
+  for(lag=minLag;lag<=maxLag;lag++){
+    var r=0;for(i=0;i<m;i++)r+=x[i]*x[i+lag];
+    c[lag]=r/Math.sqrt(e0*e1+1e-12);if(c[lag]>mx)mx=c[lag];
+    e1+=x[lag+m]*x[lag+m]-x[lag]*x[lag];
+  }
+  var pick=-1;
+  for(lag=minLag+1;lag<maxLag;lag++){if(c[lag]>=.9*mx&&c[lag]>=c[lag-1]&&c[lag]>=c[lag+1]){pick=lag;break;}}
+  if(pick<0)return null;
+  var a=c[pick-1],b=c[pick],d=c[pick+1],den=a-2*b+d,sh=den?.5*(a-d)/den:0;
+  return {f:sr/(pick+sh),c:b};
+}
+function median(a){var b=a.slice().sort(function(p,q){return p-q;});return b[b.length>>1];}
+
+function renderLily(){
+  var bars='';for(var i=0;i<9;i++)bars+='<i></i>';
+  $('#ob-body',el).innerHTML=
+   '<div class="ob-stage fr-stage lt-stage" id="ob-stage"><div class="ob-sky"></div><div class="ob-moon"></div><div class="lt-water"></div>'+lilySVG()
+  +'<div class="fr-pct" id="fr-pct">0%</div></div>'
+  +'<p class="ob-hint" id="ob-hint"></p>'
+  +'<div class="fr-wave" id="fr-wave" aria-hidden="true">'+bars+'</div>'
+  +'<p class="fr-sub" id="fr-sub"></p>'
+  +'<div class="ob-card"><small>觀察筆記</small><p>'+((opts&&opts.note)||'')+'</p></div>'
+  +'<div class="ob-btns"><button class="b" id="ob-intro">看介紹</button><button class="a" id="fr-start">開始吹奏</button></div>';
+  var st=$('#ob-stage',el);
+  st.addEventListener('pointerdown',function(e){if(F.done)return;F.hold=true;F.holdT=0;try{st.setPointerCapture(e.pointerId);}catch(x){}audio();});
+  ['pointerup','pointercancel','lostpointercapture'].forEach(function(t){st.addEventListener(t,function(){F.hold=false;});});
+  st.addEventListener('contextmenu',function(e){e.preventDefault();});
+  $('#ob-intro',el).addEventListener('click',close);
+  $('#fr-start',el).addEventListener('click',onFernBtn);
+  fernHint();
+}
+
+function lilyTick(ts){
+  if(!openFlag||!F||F.kind!=='lily'){raf=0;return;}
+  raf=requestAnimationFrame(lilyTick);
+  var dt=F.last?Math.min(.1,(ts-F.last)/1000):.016;F.last=ts;F.t+=dt;
+  var st=$('#ob-stage',el);if(!st)return;
+  var rms=readRms(),voiced=false,stable=false,lv=0,m='';
+  if(!F.done){
+    if(rms!=null){
+      if(F.calib>0){
+        F.calib-=dt;F.floor+=rms;F.floorN++;
+        if(F.calib<=0){var fl=F.floor/Math.max(1,F.floorN);F.thr=Math.max(.012,Math.min(.03,fl*2.5+.004));fernHint();}
+      }else{
+        lv=Math.max(0,Math.min(1,(rms-F.thr)/.12));
+        var pit=null;
+        if(rms>F.thr){
+          if(TEST.f!=null)pit={f:TEST.f,c:1};
+          else if(F.mic)pit=detectPitch(F.mic.buf,F.mic.an.context.sampleRate);
+        }
+        if(pit&&pit.c>=.85&&pit.f>=180&&pit.f<=3500){
+          F.gap=0;F.hist.push(pit.f);if(F.hist.length>5)F.hist.shift();
+          var fm=median(F.hist);
+          if(!F.ref||Math.abs(1200*Math.log(fm/F.ref)/Math.LN2)>25){F.ref=fm;F.seg=0;}else F.seg+=dt;
+          voiced=true;stable=F.seg>=.4;
+        }else{F.gap+=dt;if(F.gap>.25){F.ref=0;F.seg=0;F.hist=[];}}
+      }
+    }
+    if(F.hold){voiced=true;stable=true;lv=Math.max(lv,.7);F.holdT+=dt;}
+    if(F.calib<=0){m=stable?'很穩！繼續。':voiced?'穩住這個音…':'';}
+    if(m!==F.msg){F.msg=m;fernHint(m||undefined);}
+  }
+  var target=stable?.55+.45*lv:voiced?.25:0;
+  F.g+=(target-F.g)*Math.min(1,dt*6);
+  if(stable)F.prog=Math.min(1,F.prog+dt/BLOW_SEC);
+  var g=F.done?1:F.g;
+  st.style.setProperty('--g',g.toFixed(3));st.style.setProperty('--p',F.prog.toFixed(3));
+  st.classList.toggle('calm',stable||F.done);
+  var C=2*Math.PI*122,pr=$('#fr-prog',el);
+  if(pr)pr.setAttribute('stroke-dashoffset',(C*(1-F.prog)).toFixed(1));
+  $('#fr-pct',el).textContent=Math.round(F.prog*100)+'%';
+  Array.prototype.forEach.call(el.querySelectorAll('#fr-wave i'),function(b,i){
+    var k=voiced?(.25+.75*lv)*(.6+.4*Math.sin(F.t*7+i*1.3)):0;b.style.height=(6+k*28).toFixed(0)+'px';
+  });
+  if(F.prog>=1&&!F.done){F.done=true;lilyFinale();fernHint();}
+}
+function lilyFinale(){
+  var st=$('#ob-stage',el),f=document.createElement('span');
+  f.className='lt-fish';f.innerHTML=fishHTML();st.appendChild(f);
+  for(var i=0;i<12;i++){
+    var a=Math.random()*Math.PI*2,r=55+Math.random()*90,s=document.createElement('span');s.className='fr-fly lt-sp';
+    s.style.cssText='--dx:'+(Math.cos(a)*r*1.15).toFixed(0)+'px;--dy:'+(-Math.abs(Math.sin(a))*r*1.0-14).toFixed(0)+'px;animation-delay:'+(i*.08).toFixed(2)+'s';
+    s.innerHTML='<i style="--d:'+(Math.random()*1.2).toFixed(2)+'s;--wx:'+((Math.random()-.5)*30).toFixed(0)+'px;--wy:'+((Math.random()-.5)*26).toFixed(0)+'px"></i>';
+    st.appendChild(s);
+  }
+}
+
 /* ---------- 進出 ---------- */
 var GAMES={
+  2:{title:function(A){return '對著'+(A?A.plant:'月光睡蓮');},render:function(){F=fernNew('lily');renderLily();raf=requestAnimationFrame(lilyTick);}},
   9:{title:function(A){return '點點'+(A?A.plant:'音符花');},render:renderPlant},
   5:{title:function(A){return '對著'+(A?A.plant:'螢光蕨');},render:function(){F=fernNew();renderFern();raf=requestAnimationFrame(fernTick);}}
 };
@@ -360,5 +496,5 @@ function close(){
   try{opts&&opts.onClose&&opts.onClose();}catch(e){}
 }
 
-window.DexObserve={has:has,open:open,close:close,isOpen:function(){return openFlag;},_played:played,_state:function(){return S;},_fern:function(){return F;},_test:TEST};
+window.DexObserve={has:has,open:open,close:close,isOpen:function(){return openFlag;},_played:played,_state:function(){return S;},_fern:function(){return F;},_test:TEST,_detect:detectPitch};
 })();
