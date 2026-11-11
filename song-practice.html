@@ -72,7 +72,7 @@ ul.errs li b{font-weight:800}
   <h1 id="pageTitle">分段練習（原型）</h1>
 
   <div class="card warn" id="inapp" hidden>⚠️ 看起來在 LINE／臉書／IG 的內建瀏覽器，常常擋麥克風。請點右上角「⋯」→ 用 Safari／Chrome 開啟。</div>
-  <div class="card warn" id="protoNote" style="font-size:13px">原型版：正確次數只存在這支手機，<b>不計星星糖、不掉晶體</b>，只用來測試判分。</div>
+  <div class="card warn" id="protoNote" style="font-size:13px">原型版：正確次數只存在這支手機，<b>不計星星糖、不掉水晶碎片</b>，只用來測試判分。</div>
   <div class="card warn" id="mockNote" style="font-size:13px" hidden>這是測試版的模擬任務：歌曲與小節範圍是暫時假資料，正式內容由老師指定。</div>
 
   <section class="card" id="taskCard">
@@ -138,7 +138,7 @@ const {SONGS,build}=window.OLM_SONGS;
 const SVGNS='http://www.w3.org/2000/svg';
 const COUNT_IN=4,MAX_BARS=16,STORE='olm_song_proto_v1';
 /* 任務模式：網址 ?task=任務id（由遊戲練習分頁的「本週任務」清單點進來）。曲子與小節範圍由任務指定、不可改；
-   次數、星星糖、晶體都走共用的 wk-core.js（olm_wk_v2）。沒有 ?task= 時是舊的原型模式（只存 olm_song_proto_v1，不計星星糖，供開發測試）。 */
+   次數、星星糖、水晶碎片都走共用的 wk-core.js（olm_wk_v2）。沒有 ?task= 時是舊的原型模式（只存 olm_song_proto_v1，不計星星糖，供開發測試）。 */
 const Core=window.OLM_WK;
 const TASK=(function(){const id=new URLSearchParams(location.search).get('task');const t=id&&Core.taskById(id);return t&&t.type==='song'?t:null;})();
 const GOAL=TASK?TASK.T:20;
@@ -518,7 +518,7 @@ function showGauge(diff,nr){
 }
 function setLive(c,l){$('count').textContent=c;$('live').textContent=l||' ';}
 
-/* ========== 曲目、範圍與進度（原型：只存手機，不計星星糖與晶體） ========== */
+/* ========== 曲目、範圍與進度（原型：只存手機，不計星星糖與水晶碎片） ========== */
 let cfg=TASK?{song:TASK.song,from:TASK.from,to:TASK.to}:{song:'star',from:1,to:8};
 function taskKey(){return cfg.song+':'+cfg.from+'-'+cfg.to;}
 function loadP(){let o=null;try{o=JSON.parse(localStorage.getItem(STORE)||'null');}catch(e){}if(!o||typeof o!=='object')o={tasks:{},played:{}};o.tasks=o.tasks||{};o.played=o.played||{};return o;}

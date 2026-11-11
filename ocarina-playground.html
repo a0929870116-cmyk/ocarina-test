@@ -285,9 +285,9 @@ function touchDay(){
 }
 
 
-/* ---------- 星空試煉：晶體掉落與每日首次金幣（暫定規則 11/11，☐ 數值待實測） ----------
-   掉落量依「答錯次數」：0 錯＝2 顆（當島晶體＋其他已開島晶體 1 顆）、1–2 錯＝1 顆（當島）、3 錯以上＝0 顆。
-   每日小遊戲掉落上限 6 顆（與每週練習的上限各自計）；每種晶體背包上限 30。
+/* ---------- 星空試煉：水晶碎片掉落與每日首次金幣（暫定規則 11/11，☐ 數值待實測） ----------
+   掉落量依「答錯次數」：0 錯＝2 顆（當島水晶碎片＋其他已開島水晶碎片 1 顆）、1–2 錯＝1 顆（當島）、3 錯以上＝0 顆。
+   每日小遊戲掉落上限 6 顆（與每週練習的上限各自計）；每種水晶碎片背包上限 30。
    寫入飛船存檔 olm_ship_v1.el；每日紀錄存 olm_arcade_v1。金幣商店還是示範數字，所以 +5 只先記錄。 */
 const ARC_KEY='olm_arcade_v1',SHIP_KEY='olm_ship_v1',ARC_DAY_CAP=6,ARC_KIND_CAP=30,ARC_COIN=5;
 const ARC_ELEM=[['stardust','星塵'],['moonwater','月光水'],['rainbow','彩虹絲'],['cloud','雲絮'],['glowdew','螢光露'],['lantern','燈籠火'],['core','星核砂'],['seaglass','海玻璃'],['note','音符晶'],['aurora','極光冰'],['peak','星峰石'],['ruby','城堡紅玉']];
@@ -321,12 +321,12 @@ function dropHTML(d){
   let h='<div class="drop"><div class="dw">這次答錯 '+d.wrong+' 次</div>';
   if(d.items.length){
     h+='<div class="dgems">'+d.items.map(it=>'<span class="dg">'+(window.ISLE_ART?ISLE_ART.crystal(it.n,30):'◆')+'<span>'+it.name+' ×1</span></span>').join('')+'</div>';
-    h+='<div class="dn">'+(d.want>=2&&d.items.length>=2?'全對，多掉一顆稀有晶體！':'獲得晶體！')+'到「飛行船」提煉升級。</div>';
+    h+='<div class="dn">'+(d.want>=2&&d.items.length>=2?'全對，多掉一顆稀有水晶碎片！':'獲得水晶碎片！')+'到「飛行船」提煉升級。</div>';
   }else if(d.want===0){
-    h+='<div class="dn">這次沒有掉晶體。答錯 2 次以內就會掉，再挑戰一次！</div>';
+    h+='<div class="dn">這次沒有掉水晶碎片。答錯 2 次以內就會掉，再挑戰一次！</div>';
   }
-  if(d.capped)h+='<div class="dn">今天的晶體掉落已達上限（'+ARC_DAY_CAP+' 顆），明天再來！</div>';
-  if(d.full)h+='<div class="dn">這種晶體的背包滿了（'+ARC_KIND_CAP+' 顆），先去飛行船提煉用掉吧！</div>';
+  if(d.capped)h+='<div class="dn">今天的水晶碎片掉落已達上限（'+ARC_DAY_CAP+' 顆），明天再來！</div>';
+  if(d.full)h+='<div class="dn">這種水晶碎片的背包滿了（'+ARC_KIND_CAP+' 顆），先去飛行船提煉用掉吧！</div>';
   if(d.coin)h+='<div class="dc">今天第一次玩，金幣 +'+d.coin+'（已存進商店金幣）</div>';
   return h+'</div>';
 }

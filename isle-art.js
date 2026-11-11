@@ -1,5 +1,5 @@
-/* 12 座島的動物、植物與晶體圖示（SVG，暫定外型）。
-   game-test.html（圖鑑）、ship-workshop.html（晶體）、isle-art-preview.html（預覽）共用。
+/* 12 座島的動物、植物與水晶碎片圖示（SVG，暫定外型）。
+   game-test.html（圖鑑）、ship-workshop.html（水晶碎片）、isle-art-preview.html（預覽）共用。
    用法：ISLE_ART.plant(n,px) / animal(n,px) / crystal(n,px) 回傳 SVG 字串；crystalInner(n) 回傳 32x32 座標的內容（可嵌進別的 SVG）。 */
 (function(){
 'use strict';
@@ -93,7 +93,7 @@ const ANIMAL={
   +E(32,38,10,13,'#6d5bb5')+P('M24 28L23 16L30 24Z','#6d5bb5')+P('M40 28L41 16L34 24Z','#6d5bb5')+C(32,32,9,'#6d5bb5')+eye(28,31,2.6)+eye(36,31,2.6)+P('M30 36L31 40L32 36Z','#fff',' stroke-width="1.2"')+P('M33 36L34 40L35 36Z','#fff',' stroke-width="1.2"')+star(32,46,3.6,'#ffe066',1.2)+L('M28 51V55M36 51V55',K,2)
 };
 
-/* ================= 晶體（32x32） ================= */
+/* ================= 水晶碎片（32x32） ================= */
 const F=(c,t)=>{ // 取亮/暗色用
   const h=c.slice(1),n=[0,2,4].map(i=>parseInt(h.substr(i,2),16)),m=t>0?255:0,a=Math.abs(t);
   return '#'+n.map(v=>Math.round(v+(m-v)*a).toString(16).padStart(2,'0')).join('');};

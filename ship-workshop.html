@@ -102,7 +102,7 @@ select{min-height:44px;font:500 16px var(--font-b);border:2px solid var(--line);
 <script src="isle-art.js"></script>
 <script>
 /* ===== 資料（名稱、配方、數值都是暫定） ===== */
-const EL=ISLE_ART.data.map(d=>({id:d.cid,n:d.crystal,isle:d.isle,c:d.c}));   /* 12 島各一種晶體，資料在 isle-art.js */
+const EL=ISLE_ART.data.map(d=>({id:d.cid,n:d.crystal,isle:d.isle,c:d.c}));   /* 12 島各一種水晶碎片，資料在 isle-art.js */
 const SLOTS=[
   {id:'hull',n:'船體',d:['木造小船身','加上欄杆與提燈','加上甲板小屋與第二根桅桿']},
   {id:'sail',n:'風帆',d:['簡單帆面，一個三圈紋','加上後帆與紋樣邊','加上旗幟與符文光環']},
@@ -112,7 +112,7 @@ const SLOTS=[
 ];
 const byId=(arr,id)=>arr.find(x=>x.id===id);
 const nameOf=id=>byId(EL,id).n;
-const COST=3; /* 每次升級放入 3 顆晶體（任意種類）；位置決定顏色 */
+const COST=3; /* 每次升級放入 3 顆水晶碎片（任意種類）；位置決定顏色 */
 
 /* ===== 每週任務（要和 weekly-practice.html 一致；讀它的存檔 olm_wk_v2） ===== */
 const TASKS=OLM_WK.TASKS;   /* 任務清單在共用的 wk-core.js（含歌曲任務） */
@@ -277,7 +277,7 @@ function ship(){
 }
 
 /* ===== 介面 ===== */
-const DEF_MSG='提煉晶體能量，升級飛行船設備！';
+const DEF_MSG='提煉水晶碎片能量，升級飛行船設備！';
 function mix(a,b,t){const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));const x=p(a),y=p(b);return '#'+x.map((v,i)=>Math.round(v+(y[i]-v)*t).toString(16).padStart(2,'0')).join('');}
 /* 每個零件的配色：第 1 顆＝主色、第 2 顆＝紋飾、第 3 顆＝光暈（放入魔法陣的位置決定） */
 function pcol(id){
@@ -312,13 +312,7 @@ function renderTop(){
   document.getElementById('tabs').innerHTML=TABS.map(([k,n])=>`<button role="tab" data-tab="${k}" aria-selected="${tab===k}">${icon(k,24)}<span>${n}</span></button>`).join('');
 }
 function giftCard(){
-  const w=wk(), done=weekDone(w)||S.fake===w.week, got=S.claimed===w.week;
-  const prog=TASKS.map(t=>t.name+' '+Math.min(w.tasks[t.id]|0,t.T)+'／'+t.T).join('　');
-  let body;
-  if(got) body=`<p class="need">本週的晶體已經領了。下週完成任務再來領。</p>`;
-  else if(!done) body=`<p class="need">完成本週任務目標，就能領 1 顆晶體，自己選種類。<br>${w.has?'目前進度：'+prog:'這週還沒開始練習。到「練習」頁完成每週任務吧。'}</p>`;
-  else body=`<p class="need">本週任務完成了！選 1 顆晶體帶走：</p><div class="grid">${EL.map(e=>`<button class="chip" data-act="claim" data-id="${e.id}">${gemSvg(e.c)}<b>${e.n}</b></button>`).join('')}</div>`;
-  return `<div class="card gift"><div class="row"><span class="sname">每週晶體</span><span class="tag">第 ${w.week+1} 週</span></div>${body}</div>`;
+  return `<div class="card gift"><div class="row"><span class="sname">水晶碎片取得方式</span></div><p class="need">解星空試煉場－陶笛遊樂場<br>隨機掉落！</p></div>`;
 }
 function avail(id){return S.el[id]-pick.filter(p=>p===id).length;}
 /* 魔法陣 */
@@ -350,7 +344,7 @@ function circleSvg(){
     return `<g ${id?`data-act="clear" data-i="${i}" role="button" tabindex="0" aria-label="取出${byId(EL,id).n}（${nm}）" style="cursor:pointer"`:`aria-label="${nm}空格"`}><circle cx="${p[0]}" cy="${p[1]}" r="31" fill="#fbf4de" stroke="${G}" stroke-width="3" ${id?'':'stroke-dasharray="6 5"'}/>${inner}</g>`;
   }).join('');
   const center=`<g data-act="cycle" role="button" tabindex="0" aria-label="目前部位：${part.n}，點一下換下一個部位" style="cursor:pointer"><circle cx="150" cy="150" r="50" fill="#fbf4de" stroke="${D}" stroke-width="3"/><circle cx="150" cy="150" r="44" fill="none" stroke="${G}" stroke-width="2" stroke-dasharray="3 4"/><g transform="translate(112 110) scale(1.9)" color="${D}">${icon(mcPart,40).replace(/<svg[^>]*>/,'<g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">').replace('</svg>','</g>')}</g><text x="150" y="196" text-anchor="middle" font-size="13" font-weight="700" fill="${D}">${part.n}</text></g>`;
-  return `<svg class="mc" viewBox="-12 -12 324 324" role="group" aria-label="提煉陣，選 ${part.n}，三個晶體格">${ringBraid(MC.cx,MC.cy,MC.R,5.5,12,'rb')}${trik}${center}${slots}</svg>`;
+  return `<svg class="mc" viewBox="-12 -12 324 324" role="group" aria-label="提煉陣，選 ${part.n}，三個水晶碎片格">${ringBraid(MC.cx,MC.cy,MC.R,5.5,12,'rb')}${trik}${center}${slots}</svg>`;
 }
 function craftPanel(){
   const part=byId(SLOTS,mcPart), lv=S.lv[mcPart], full=pick.every(Boolean);
@@ -359,38 +353,36 @@ function craftPanel(){
   if(full){
     const cs=pick.map(x=>byId(EL,x));
     prev=`${lv>=3?`${part.n}已滿級，提煉只會換顏色`:`${part.n} Lv${lv} → Lv${lv+1}`}　主色 ${gemSvg(cs[0].c)} 紋飾 ${gemSvg(cs[1].c)} 光暈 ${gemSvg(cs[2].c)}`;
-  }else prev=`放入 ${COST} 顆晶體（現在 ${n}／${COST}）。位置決定顏色：上方＝主色、右下＝紋飾、左下＝光暈。`;
+  }else prev=`放入 ${COST} 顆水晶碎片（現在 ${n}／${COST}）。位置決定顏色：上方＝主色、右下＝紋飾、左下＝光暈。`;
   const parts=SLOTS.map(s=>`<button class="partbtn" data-act="part" data-slot="${s.id}" aria-pressed="${s.id===mcPart}">${icon(s.id,28)}<span>${s.n}</span></button>`).join('');
   const chips=EL.map(e=>`<button class="chip" data-act="put" data-id="${e.id}" ${avail(e.id)>0&&!full?'':'disabled'}>${gemSvg(e.c)}<b>${e.n}</b><small>×${avail(e.id)}</small></button>`).join('');
   const pips=[1,2,3].map(i=>`<span class="pip${i<=lv?' on':''}"></span>`).join('');
-  return giftCard()+`<h2>提煉工坊</h2><p class="desc" style="margin:0 0 6px">提煉晶體能量，升級飛行船設備！</p>
+  return giftCard()+`<h2>提煉工坊</h2><p class="desc" style="margin:0 0 6px">提煉水晶碎片能量，升級飛行船設備！</p>
 <div class="partrow" role="group" aria-label="選擇升級部位">${parts}</div>
 <div class="card"><div class="row"><span class="sname">${part.n}</span><span class="pips" aria-label="等級 ${lv}／3">${pips}</span></div><p class="desc">Lv${lv}：${part.d[lv-1]}</p>${circleSvg()}<p class="preview">${prev}</p>
-<button class="btn" data-act="inject" ${full?'':'disabled'}>提煉晶體能量</button>
+<button class="btn" data-act="inject" ${full?'':'disabled'}>提煉水晶碎片能量</button>
 <button class="btn alt small" style="margin-top:8px" data-act="reset-color" ${S.cr[mcPart]?'':'disabled'}>恢復${part.n}原色</button></div>
-<h2>我的晶體</h2><p class="notes" style="padding-left:0;list-style:none">解任務拾獲島嶼結晶，全對多掉一顆稀有晶體！</p>
+<h2>我的水晶碎片</h2><p class="notes" style="padding-left:0;list-style:none">解任務拾獲島嶼結晶，全對多掉一顆稀有水晶碎片！</p>
 <div class="grid">${chips}</div>`;
 }
 function bagPanel(){
   const els=EL.map(e=>`<div class="chip" style="cursor:default">${gemSvg(e.c)}<b>${e.n}</b><small>${e.isle}</small><small>×${S.el[e.id]}</small></div>`).join('');
   const opts=EL.map((e,i)=>`<option value="${i+1}" ${S.isle===i+1?'selected':''}>第 ${i+1} 島 ${e.isle}</option>`).join('');
   const w=wk();
-  return `<h2>晶體（每島一種）</h2><div class="grid">${els}</div>
-<p class="notes">解任務拾獲島嶼結晶，全對多掉一顆稀有晶體！在「練習」頁超過任務目標後掉落，依「目前練習的島」決定是哪一種。</p>
+  return `<h2>水晶碎片（每島一種）</h2><div class="grid">${els}</div>
+<p class="notes">解任務拾獲島嶼結晶，全對多掉一顆稀有水晶碎片！在「練習」頁超過任務目標後掉落，依「目前練習的島」決定是哪一種。</p>
 <details data-d="tools" ${openD.tools?'open':''}><summary>測試工具</summary><div class="card">
-<label for="isle" class="need" style="display:block">目前練習的島（練習頁掉的晶體會跟著變）</label>
+<label for="isle" class="need" style="display:block">目前練習的島（練習頁掉的水晶碎片會跟著變）</label>
 <select id="isle" data-act="isle" style="width:100%;margin-bottom:8px">${opts}</select>
 <button class="btn" data-act="drop">模擬掉落 1 次（${EL[S.isle-1].n}）</button>
 <div class="grid2" style="margin-top:8px">
 <button class="btn alt" data-act="all3">每種 +3</button><button class="btn alt" data-act="reset">重設飛船</button></div>
-<button class="btn alt" style="margin-top:8px" data-act="fake">${S.fake===w.week?'取消「假裝本週任務完成」':'假裝本週任務完成'}</button>
-<button class="btn alt" style="margin-top:8px" data-act="unclaim" ${S.claimed===w.week?'':'disabled'}>重設本週晶體領取</button>
 <button class="btn alt" style="margin-top:8px" data-act="jar10">星星罐 +10（測試開島，罐滿 40 就會開島）</button>
 <button class="btn alt" style="margin-top:8px" data-act="resetOpen">重設開島進度（回第 3 島、星星罐 9、金幣 86）</button></div></details>
 <h2>這版的暫定假設</h2><ul class="notes">
-<li>晶體名稱第 5～12 島是暫擬。每次升級放入任意 3 顆晶體（Lv1→2、Lv2→3 各一次）。</li>
+<li>水晶碎片名稱第 5～12 島是暫擬。每次升級放入任意 3 顆水晶碎片（Lv1→2、Lv2→3 各一次）。</li>
 <li>放入的位置決定該部位的顏色：上方＝主色、右下＝紋飾、左下＝光暈。滿級後仍可重新提煉換色。</li>
-<li>每週完成任務目標領 1 顆自選晶體，同一週只能領一次，不補領。</li>
+<li>水晶碎片只靠「星空試煉場－陶笛遊樂場」隨機掉落；每週任務不再另外給。</li>
 <li>重設飛船只清飛船資料，不動星星罐與練習進度。</li></ul>`;
 }
 document.getElementById('labic').innerHTML=icon('lab',26,'inl')+' ';
@@ -405,7 +397,7 @@ document.addEventListener('click',e=>{
   const t=e.target.closest('[data-tab],[data-act]'); if(!t) return;
   if(t.dataset.tab){tab=t.dataset.tab;pick=[null,null,null];render();return;}
   const act=t.dataset.act;
-  S=load();   /* 先讀最新存檔，避免蓋掉練習頁剛掉的晶體 */
+  S=load();   /* 先讀最新存檔，避免蓋掉練習頁剛掉的水晶碎片 */
   if(act==='part'){mcPart=t.dataset.slot;pick=[null,null,null];}
   else if(act==='cycle'){const i=SLOTS.findIndex(s=>s.id===mcPart);mcPart=SLOTS[(i+1)%SLOTS.length].id;pick=[null,null,null];}
   else if(act==='claim'){
@@ -429,9 +421,9 @@ document.addEventListener('click',e=>{
   }
   else if(act==='reset-color'){delete S.cr[mcPart];setMsg(`${byId(SLOTS,mcPart).n}已恢復原色。`);}
   else if(act==='drop'){const el=EL[S.isle-1];S.el[el.id]++;setMsg(`掉落「${el.n}」×1（第 ${S.isle} 島）。`);}
-  else if(act==='all3'){EL.forEach(x=>S.el[x.id]+=3);setMsg('每種晶體 +3。');}
+  else if(act==='all3'){EL.forEach(x=>S.el[x.id]+=3);setMsg('每種水晶碎片 +3。');}
   else if(act==='reset'){S=Object.assign(fresh(),{isle:S.isle});pick=[null,null,null];setMsg('飛船已重設。');}
-  else if(act==='fake'){const w=wk();S.fake=S.fake===w.week?-1:w.week;setMsg(S.fake===w.week?'已假裝本週任務完成，可到「提煉工坊」領晶體。':'已取消。');}
+  else if(act==='fake'){const w=wk();S.fake=S.fake===w.week?-1:w.week;setMsg(S.fake===w.week?'已假裝本週任務完成，可到「提煉工坊」領水晶碎片。':'已取消。');}
   else if(act==='unclaim'){S.claimed=-1;setMsg('已重設本週領取。');}
   else if(act==='jar10'||act==='resetOpen'){
     try{const T=JSON.parse(localStorage.getItem('olm_test_v1')||'null')||{};
