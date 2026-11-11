@@ -57,6 +57,8 @@ ul.errs li b{font-weight:800}
 .vol i{display:block;height:100%;width:0;background:var(--green)}
 [hidden]{display:none!important}
 </style>
+<script src="sfx.js"></script>
+<script>if(window.Sfx){Sfx.auto('.back','nav');Sfx.auto('.btn:not(#goBtn):not(#stopBtn)','tap');}</script>
 </head>
 <body>
 <div class="wrap">
@@ -432,6 +434,7 @@ async function openMic(){
   an=ctx.createAnalyser();an.fftSize=2048;src.connect(an);buf=new Float32Array(an.fftSize);
 }
 function closeMic(){
+  window.Sfx&&Sfx.mic(false);
   cancelAnimationFrame(raf);
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
   if(ctx){try{ctx.close();}catch(e){}ctx=null;}
@@ -464,6 +467,7 @@ async function startRun(){
   showErr('');
   $('goBtn').disabled=true;
   try{await openMic();}catch(e){showErr(micError(e));$('goBtn').disabled=false;return;}
+  window.Sfx&&Sfx.mic(true);
   const bpm=parseInt($('bpm').value,10),beat=60/bpm,tol=parseFloat($('tol').value);
   const T0=ctx.currentTime+0.7;
   const S=T0+COUNT_IN*beat;
@@ -481,6 +485,7 @@ async function startRun(){
 }
 function killClicks(r){if(!r||!r.nodes)return;r.nodes.forEach(x=>{try{x.o.onended=null;x.o.stop();}catch(e){}try{x.o.disconnect();x.g.disconnect();}catch(e){}});r.nodes=[];}
 function stopRun(){
+  window.Sfx&&Sfx.mic(false);
   if(run){run.done=true;killClicks(run);run=null;}
   cancelAnimationFrame(raf);
   $('liveBox').hidden=true;$('stopBtn').hidden=true;$('goBtn').hidden=false;$('bpm').disabled=false;$('tol').disabled=false;
@@ -531,6 +536,7 @@ function loop(){
 }
 function finish(){
   const r=run;if(!r)return;
+  window.Sfx&&Sfx.mic(false);
   r.done=true;killClicks(r);cancelAnimationFrame(raf);run=null;
   const res=judge(r.frames,r.S,r.beat,r.outLat,r.tol);
   showResult(res);
@@ -554,6 +560,7 @@ function showResult(res){
   if(!s.counted){
     v.textContent='好像沒吹完，這次不算次數。請確認有收到聲音再試一次。';v.style.color='var(--ruby)';
   }else{
+    try{window.Sfx&&(s.perfect?Sfx.ok():Sfx.bad());}catch(e){}
     P.played=(P.played|0)+1;let starMsg='';if(s.perfect){starMsg=recordPerfect();}saveP();renderP();
     if(s.perfect){
       v.textContent=(P.tasks[TASK_ID]===GOAL?'🎉 恭喜完成本週任務！正確 '+GOAL+' 次達成':'全部都對！本週這個任務正確 '+P.tasks[TASK_ID]+' 次 🌟')+starMsg;

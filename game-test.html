@@ -292,6 +292,15 @@ a.btn{text-decoration:none}
 .tuner i{transition:left .08s linear}
 .tuner .nd{opacity:.3}
 </style>
+<script src="sfx.js"></script>
+<script>if(window.Sfx){
+Sfx.auto('.nav button','nav');
+Sfx.auto('.btn,button.back,.bk-back,#q-lock,#q-dex,#q-story','tap');
+/* 收音中靜音：舊長音吹奏、內嵌遊樂場的麥克風；互動觀察開啟時另外在 onOpen／onClose 切換 */
+Sfx.probe=function(){
+  try{if(typeof B!=='undefined'&&B.on)return true;}catch(e){}
+  try{var w=document.getElementById('game-frame').contentWindow;return !!(w&&w.__og&&w.__og.Mic&&w.__og.Mic.on);}catch(e){return false;}
+};}</script>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
@@ -748,7 +757,7 @@ $('book').addEventListener('click',e=>{
   if(t.dataset.bd)bkGo((BK.n-1)*2+BK.i+Number(t.dataset.bd));
   else if(t.dataset.bi!==undefined){if(Number(t.dataset.bi)!==BK.i){BK.i=Number(t.dataset.bi);renderBook(BK.i?1:-1);}}
   else if(t.dataset.bk!==undefined)bkGo(Number(t.dataset.bk));
-  else if(t.dataset.obs){const n=Number(t.dataset.obs);DexObserve.open(n,{note:ISLE_ART.info(n).pNote,onOpen:()=>toParent({type:'practice',on:true}),onClose:()=>toParent({type:'practice',on:false})});}   /* 互動觀察：開啟時暫停背景音樂，關閉恢復 */
+  else if(t.dataset.obs){const n=Number(t.dataset.obs);DexObserve.open(n,{note:ISLE_ART.info(n).pNote,onOpen:()=>{toParent({type:'practice',on:true});window.Sfx&&Sfx.mic(true)},onClose:()=>{toParent({type:'practice',on:false});window.Sfx&&Sfx.mic(false)}});}   /* 互動觀察：開啟時暫停背景音樂，關閉恢復 */
 });
 (function(){let sx=0,sy=0,on=false;const el=$('bk-body');
   el.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY;on=true;});
