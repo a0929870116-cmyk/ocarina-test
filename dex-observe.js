@@ -1,6 +1,7 @@
 /* 圖鑑「互動觀察」(C)：從 A 圖鑑書頁的植物卡進入。
-   目前只有第 9 島「音符花」（點一下發亮的花，依序彈出一小段旋律；不需麥克風）。
-   螢光蕨（5）、月光睡蓮（2）之後加進 GAMES。
+   第 9 島「音符花」（點一下發亮的花，依序彈出一小段旋律；不需麥克風）。
+   第 5 島「螢光蕨」（對著新芽吹陶笛，綠光隨節奏跳動，吹滿螢火蟲飛出；沒麥克風→按住畫面代替）。
+   月光睡蓮（2）之後加進來。
    規則（使用者 11/11 19:40）：吹滿／彈完只有動畫，沒有任何獎勵數字；不記錄完成、不新增存檔。
    用法：DexObserve.has(n) / open(n,{note,onOpen,onClose}) / close() / isOpen() */
 (function(){
@@ -97,7 +98,7 @@ var el=null,S=null,opts=null,openFlag=false;
 
 function build(){
   if(el)return;
-  var st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
+  var st=document.createElement('style');st.textContent=CSS+FCSS;document.head.appendChild(st);
   el=document.createElement('div');el.id='ob';el.hidden=true;
   el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-labelledby','ob-title');
   el.innerHTML=
@@ -172,22 +173,190 @@ function finale(){
 
 function reset(){S=newState();sync();}
 
-function has(n){return n===9;}
+/* ================= 螢光蕨（第 5 島）=================
+   吹陶笛（麥克風音量）→ 綠光亮起、隨起音（節奏）跳動；累計吹約 6 秒＝100%，螢火蟲飛出。
+   只有動畫：不給任何獎勵、不記錄完成、不新增存檔。
+   沒麥克風／不允許 → 按住畫面代替（按住時綠光自己有節奏地跳）。 */
+var BLOW_SEC=6;                      /* 累計吹奏秒數（暫定，實測後調）*/
+var FCSS=''
++'.fr-stage{background:linear-gradient(#07122a 0%,#0f2a3a 55%,#16382f 100%);touch-action:none;-webkit-touch-callout:none;cursor:pointer;--g:0}'
++'.fr-svg{position:absolute;left:50%;top:0;height:100%;width:auto;max-width:100%;transform:translateX(-50%);overflow:visible;pointer-events:none}'
++'.fr-ring{fill:none;stroke:rgba(190,255,170,.16);stroke-width:5}.fr-prog{fill:none;stroke:#b9ff7a;stroke-width:5;stroke-linecap:round;filter:drop-shadow(0 0 4px rgba(185,255,122,.8));transition:stroke-dashoffset .12s linear}'
++'.fr-ferns{transform-origin:150px 250px;filter:brightness(calc(.75 + var(--g)*.9)) drop-shadow(0 0 calc(2px + var(--g)*13px) rgba(150,255,140,calc(.15 + var(--g)*.85)))}'
++'.fr-glow{fill:url(#frg);opacity:calc(.12 + var(--g)*.88);transform-box:fill-box;transform-origin:center;transform:scale(calc(.8 + var(--g)*.7))}'
++'.fr-stage.beat .fr-glow{animation:frbeat .3s ease-out}'
++'.fr-stage.beat .fr-ferns{animation:frsway .3s ease-out}'
++'.fr-pct{position:absolute;left:14px;top:10px;color:#d9ffb8;font-weight:700;font-size:15px;text-shadow:0 0 8px rgba(160,255,140,.8);pointer-events:none}'
++'.fr-fly{position:absolute;left:50%;top:62%;width:0;height:0;pointer-events:none;animation:frout 1.5s cubic-bezier(.15,.7,.3,1) both}'
++'.fr-fly i{position:absolute;left:-5px;top:-5px;width:11px;height:11px;border-radius:50%;background:#f8ffb0;box-shadow:0 0 12px 5px rgba(235,255,120,.9);animation:frflick 1.1s ease-in-out infinite,frdrift 3.6s ease-in-out infinite alternate;animation-delay:var(--d,0s)}'
++'.fr-wave{display:flex;align-items:flex-end;justify-content:center;gap:5px;height:34px}.fr-wave i{display:block;width:8px;height:6px;border-radius:4px;background:#5fb86f;transition:height .08s}'
++'.fr-sub{margin:-6px 0 0;text-align:center;font-size:13.5px;color:var(--ink-2,#6E5337);min-height:1.3em}'
++'@keyframes frbeat{0%{transform:scale(calc(.8 + var(--g)*.7))}35%{transform:scale(calc(1.15 + var(--g)*.7))}100%{transform:scale(calc(.8 + var(--g)*.7))}}'
++'@keyframes frsway{0%,100%{transform:rotate(0)}30%{transform:rotate(-1.6deg) scale(1.02)}70%{transform:rotate(1.2deg)}}'
++'@keyframes frout{0%{transform:translate(0,0) scale(.3);opacity:0}15%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(1);opacity:1}}'
++'@keyframes frflick{0%,100%{opacity:.35}50%{opacity:1}}'
++'@keyframes frdrift{0%{transform:translate(0,0)}100%{transform:translate(var(--wx),var(--wy))}}'
++'@media (prefers-reduced-motion:reduce){.fr-stage.beat .fr-glow,.fr-stage.beat .fr-ferns,.fr-fly i{animation:none}}';
+
+/* 蕨：5 根新芽（尖端捲成小圈），小葉成對排在莖兩側 */
+function frondSVG(a,len,i){
+  var h=len,lf='';
+  for(var y=22;y<h-12;y+=15){
+    var w=Math.max(5,13-(y/h)*8);
+    lf+='<ellipse cx="'+(-w-2)+'" cy="'+(-y)+'" rx="'+w+'" ry="3.4" transform="rotate(-28 '+(-w-2)+' '+(-y)+')"/>'
+       +'<ellipse cx="'+(w+2)+'" cy="'+(-y)+'" rx="'+w+'" ry="3.4" transform="rotate(28 '+(w+2)+' '+(-y)+')"/>';
+  }
+  return '<g transform="translate(150 250) rotate('+a+')">'
+   +'<circle class="fr-glow" style="--i:'+i+';animation-delay:'+(i*.04)+'s" cx="9" cy="'+(-h-4)+'" r="27"/>'
+   +'<path d="M0 0C-3 '+(-h*.4)+' 2 '+(-h*.75)+' 0 '+(-h)+'" fill="none" stroke="#3d9a5e" stroke-width="4" stroke-linecap="round"/>'
+   +'<g fill="#58c47a" stroke="#1f5a3a" stroke-width="1.2">'+lf+'</g>'
+   +'<path d="M0 '+(-h)+'c0-12 14-16 19-6c4 9-5 16-12 12c-6-3-4-11 2-10" fill="none" stroke="#b9ff7a" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>'
+   +'</g>';
+}
+function fernSVG(){
+  var C=2*Math.PI*122;
+  var fr=[[-46,92],[-23,122],[0,138],[23,116],[46,88]].map(function(f,i){return frondSVG(f[0],f[1],i);}).join('');
+  return '<svg class="fr-svg" viewBox="0 0 300 280" aria-hidden="true"><defs><radialGradient id="frg"><stop offset="0" stop-color="#eaffb0" stop-opacity=".95"/><stop offset=".45" stop-color="#9dff8a" stop-opacity=".45"/><stop offset="1" stop-color="#9dff8a" stop-opacity="0"/></radialGradient></defs>'
+   +'<circle class="fr-ring" cx="150" cy="140" r="122"/>'
+   +'<circle class="fr-prog" id="fr-prog" cx="150" cy="140" r="122" transform="rotate(-90 150 140)" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+C.toFixed(1)+'"/>'
+   +'<ellipse cx="150" cy="252" rx="62" ry="7" fill="#000" opacity=".3"/>'
+   +'<g class="fr-ferns">'+fr+'</g></svg>';
+}
+
+var F=null,raf=0;                     /* 螢光蕨狀態 */
+var TEST={rms:null};                  /* 測試用：給值就當麥克風音量 */
+function fernNew(){return {isFern:true,prog:0,done:false,g:0,pulse:0,hold:false,holdT:0,holdOn:0,mic:null,micErr:'',calib:0,floor:0,floorN:0,thr:.02,avg:0,lastOn:-1,t:0,beats:0,last:0,blowT:0};}
+
+function renderFern(){
+  var bars='';for(var i=0;i<9;i++)bars+='<i></i>';
+  $('#ob-body',el).innerHTML=
+   '<div class="ob-stage fr-stage" id="ob-stage">'+'<div class="ob-sky"></div><div class="ob-moon"></div><div class="ob-grass"></div>'+fernSVG()
+  +'<div class="fr-pct" id="fr-pct">0%</div></div>'
+  +'<p class="ob-hint" id="ob-hint"></p>'
+  +'<div class="fr-wave" id="fr-wave" aria-hidden="true">'+bars+'</div>'
+  +'<p class="fr-sub" id="fr-sub"></p>'
+  +'<div class="ob-card"><small>觀察筆記</small><p>'+((opts&&opts.note)||'')+'</p></div>'
+  +'<div class="ob-btns"><button class="b" id="ob-intro">看介紹</button><button class="a" id="fr-start">開始吹奏</button></div>';
+  var st=$('#ob-stage',el);
+  st.addEventListener('pointerdown',function(e){if(F.done)return;F.hold=true;F.holdT=0;F.holdOn=0;try{st.setPointerCapture(e.pointerId);}catch(x){}audio();});
+  ['pointerup','pointercancel','lostpointercapture'].forEach(function(t){st.addEventListener(t,function(){F.hold=false;});});
+  st.addEventListener('contextmenu',function(e){e.preventDefault();});
+  $('#ob-intro',el).addEventListener('click',close);
+  $('#fr-start',el).addEventListener('click',onFernBtn);
+  fernHint();
+}
+function fernHint(msg){
+  var h=$('#ob-hint',el),sub=$('#fr-sub',el),b=$('#fr-start',el);if(!h)return;
+  if(F.done){h.textContent='河邊的燈火，亮起來了！';sub.textContent='';b.textContent='再吹一次';return;}
+  b.textContent=F.mic?'再吹一次':'開始吹奏';
+  if(msg){h.textContent=msg;}
+  else if(F.calib>0)h.textContent='先安靜一下…';
+  else h.textContent=F.mic?'對著新芽，吹一段陶笛。':'按「開始吹奏」，對著新芽吹陶笛。';
+  sub.textContent=F.mic?'':(F.micErr||'沒有麥克風？也可以按住畫面代替。');
+}
+function onFernBtn(){
+  if(F.done){fernReset();return;}
+  if(F.mic){fernReset();return;}
+  startMic();
+}
+function startMic(){
+  var nav=navigator.mediaDevices;
+  if(!nav||!nav.getUserMedia){F.micErr='這個瀏覽器不能收音，請按住畫面代替（建議改用 Safari／Chrome）。';fernHint();return;}
+  var c=audio();
+  nav.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}).then(function(stream){
+    if(!openFlag||!F){stream.getTracks().forEach(function(t){t.stop();});return;}
+    var an=c.createAnalyser();an.fftSize=1024;
+    var src=c.createMediaStreamSource(stream);src.connect(an);   /* 不接到喇叭 */
+    F.mic={stream:stream,an:an,src:src,buf:new Float32Array(an.fftSize)};
+    F.calib=.5;F.floor=0;F.floorN=0;F.micErr='';fernHint();
+  }).catch(function(){F.micErr='麥克風沒有開啟，請按住畫面代替（或在 Safari／Chrome 允許麥克風）。';fernHint();});
+}
+function stopMic(){
+  if(F&&F.mic){try{F.mic.src.disconnect();}catch(e){}try{F.mic.stream.getTracks().forEach(function(t){t.stop();});}catch(e){}F.mic=null;}
+}
+function readRms(){
+  if(TEST.rms!=null)return TEST.rms;
+  if(!F.mic)return null;
+  var b=F.mic.buf;F.mic.an.getFloatTimeDomainData(b);
+  var s=0;for(var i=0;i<b.length;i++)s+=b[i]*b[i];
+  return Math.sqrt(s/b.length);
+}
+function fernClear(){var st=$('#ob-stage',el);if(!st)return;Array.prototype.forEach.call(st.querySelectorAll('.fr-fly'),function(n){n.remove();});}
+function fernReset(){fernClear();var o=F,r=fernNew();r.mic=o.mic;r.thr=o.thr;r.avg=o.avg;F=r;var st=$('#ob-stage',el);if(st)st.classList.remove('beat');fernHint();}
+
+function fernTick(ts){
+  if(!openFlag||!F||!F.isFern){raf=0;return;}
+  raf=requestAnimationFrame(fernTick);
+  var dt=F.last?Math.min(.1,(ts-F.last)/1000):.016;F.last=ts;F.t+=dt;
+  var st=$('#ob-stage',el);if(!st)return;
+  var rms=readRms(),blow=false,lv=0,onset=false;
+  if(rms!=null&&!F.done){
+    if(F.calib>0){
+      F.calib-=dt;F.floor+=rms;F.floorN++;
+      if(F.calib<=0){var fl=F.floor/Math.max(1,F.floorN);F.thr=Math.max(.012,Math.min(.03,fl*2.5+.004));F.avg=fl;fernHint();}
+    }else{
+      blow=rms>F.thr;lv=Math.max(0,Math.min(1,(rms-F.thr)/.12));
+      if(blow&&rms>F.avg*1.5+.004&&F.t-F.lastOn>.16){onset=true;F.lastOn=F.t;}
+      F.avg=F.avg*.92+rms*.08;
+    }
+  }
+  if(F.hold&&!F.done){                 /* 按住：綠光自己有節奏地跳 */
+    blow=true;lv=Math.max(lv,.6+.3*Math.sin(F.holdT*9));F.holdT+=dt;
+    if(F.holdOn<=0){onset=true;F.holdOn=.5;}else F.holdOn-=dt;
+  }
+  if(F.done){blow=false;}
+  if(onset){F.pulse=1;F.beats++;st.classList.remove('beat');void st.offsetWidth;st.classList.add('beat');}
+  F.pulse=Math.max(0,F.pulse-dt*4);
+  var target=blow?.35+.65*lv:0;
+  F.g+=(target-F.g)*Math.min(1,dt*(target>F.g?14:3.5));
+  var g=F.done?1:Math.min(1,F.g+F.pulse*.3);
+  st.style.setProperty('--g',g.toFixed(3));
+  if(blow){F.blowT+=dt;F.prog=Math.min(1,F.prog+dt/BLOW_SEC);}
+  var C=2*Math.PI*122,pr=$('#fr-prog',el);
+  if(pr)pr.setAttribute('stroke-dashoffset',(C*(1-F.prog)).toFixed(1));
+  $('#fr-pct',el).textContent=Math.round(F.prog*100)+'%';
+  var bs=el.querySelectorAll('#fr-wave i');
+  Array.prototype.forEach.call(bs,function(b,i){
+    var k=blow?(.25+.75*lv)*(.55+.45*Math.sin(F.t*11+i*1.7)):0;
+    b.style.height=(6+k*28).toFixed(0)+'px';
+  });
+  if(F.prog>=1&&!F.done){F.done=true;fernFinale();fernHint();}
+}
+function fernFinale(){
+  var st=$('#ob-stage',el),n=18;
+  for(var i=0;i<n;i++){
+    var a=Math.random()*Math.PI*2,r=60+Math.random()*95;
+    var f=document.createElement('span');f.className='fr-fly';
+    f.style.cssText='--dx:'+(Math.cos(a)*r*1.15).toFixed(0)+'px;--dy:'+(-Math.abs(Math.sin(a))*r*1.05-18).toFixed(0)+'px;animation-delay:'+(i*.07).toFixed(2)+'s';
+    f.innerHTML='<i style="--d:'+(Math.random()*1.2).toFixed(2)+'s;--wx:'+((Math.random()-.5)*34).toFixed(0)+'px;--wy:'+((Math.random()-.5)*28).toFixed(0)+'px"></i>';
+    st.appendChild(f);
+  }
+}
+
+/* ---------- 進出 ---------- */
+var GAMES={
+  9:{title:function(A){return '點點'+(A?A.plant:'音符花');},render:renderPlant},
+  5:{title:function(A){return '對著'+(A?A.plant:'螢光蕨');},render:function(){F=fernNew();renderFern();raf=requestAnimationFrame(fernTick);}}
+};
+function has(n){return !!GAMES[n];}
 function open(n,o){
   if(!has(n))return;
   build();opts=o||{};S=newState();
   var A=window.ISLE_ART&&ISLE_ART.data[n-1];
-  $('#ob-title',el).textContent='點點'+(A?A.plant:'音符花');
+  $('#ob-title',el).textContent=GAMES[n].title(A);
   $('#ob-sub',el).textContent='互動觀察'+(A?'・第 '+n+' 島 '+A.isle:'');
-  renderPlant();
-  el.hidden=false;openFlag=true;
+  openFlag=true;
+  GAMES[n].render();
+  el.hidden=false;
   try{opts.onOpen&&opts.onOpen();}catch(e){}
 }
 function close(){
   if(!openFlag)return;
   el.hidden=true;openFlag=false;
+  if(raf){cancelAnimationFrame(raf);raf=0;}
+  if(F){stopMic();F=null;}
   try{opts&&opts.onClose&&opts.onClose();}catch(e){}
 }
 
-window.DexObserve={has:has,open:open,close:close,isOpen:function(){return openFlag;},_played:played,_state:function(){return S;}};
+window.DexObserve={has:has,open:open,close:close,isOpen:function(){return openFlag;},_played:played,_state:function(){return S;},_fern:function(){return F;},_test:TEST};
 })();
