@@ -135,7 +135,7 @@ function jpName(m){
   return reg+s;
 }
 function jpNum(m){const pc=((m%12)+12)%12;return PCNUM[pc]||('♯'+PCNUM[pc-1]);}
-function jpDot(m){return m<72?-1:m<84?0:1;}
+function jpDot(m){return m<72?-1:m<84?0:m<96?1:2;}   /* 低音下一點、中音無點、高音上一點、最高音上兩點 */
 
 /* ========== 畫譜（SVG） ========== */
 const W=340,CLEF_W=46,MEAS_W=(W-CLEF_W-6)/2,ROW_H=106,STEP=4,LINE_GAP=8;
@@ -187,7 +187,8 @@ function drawScore(){
     const num=el('text',{x:x,y:ty,'font-size':15,'font-weight':800,'text-anchor':'middle',fill:ink},g,jpNum(n.midi));
     const d=jpDot(n.midi);
     if(d===-1)el('circle',{cx:x,cy:ty+5,r:1.7,fill:ink},g);
-    if(d===1)el('circle',{cx:x,cy:ty-15,r:1.7,fill:ink},g);
+    if(d>=1)el('circle',{cx:x,cy:ty-15,r:1.7,fill:ink},g);
+    if(d===2)el('circle',{cx:x,cy:ty-21,r:1.7,fill:ink},g);
     const badge=el('text',{x:x,y:ty+22,'font-size':10.5,'font-weight':800,'text-anchor':'middle',fill:ink2},g,'');
     n.g=g;n.head=head;n.hl=hl;n.badge=badge;n.num=num;
     n.stems=g.querySelectorAll('line');
