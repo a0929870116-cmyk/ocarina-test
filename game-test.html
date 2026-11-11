@@ -364,7 +364,7 @@ a.btn{text-decoration:none}
       </div>
       <div class="meter"><div class="row"><span>星星罐</span><span class="num" id="wk-jar-t">9 / 40</span></div><div class="track"><i id="wk-jar-bar" style="width:60%"></i></div></div>
       <button class="btn" id="wk-go"><svg><use href="#n-ocarina"/></svg><span>開始本週練習</span></button>
-      <p class="hint">照樂譜吹，音準與節拍全部都對才算一次，每次 +1 顆星星糖（每天最多 5 次有星星糖，次數照算）。兩週的任務可以開一座島。</p>
+      <p class="hint">照樂譜吹，音準與節拍全部都對才算一次，系統依任務完成度發星星糖，每週最多 20 顆，兩週的任務可以開一座島（星星罐 40 顆）。</p>
       <p class="hint" id="wk-day"></p>
     </section>
 
@@ -518,7 +518,6 @@ const STORY={1:['星光草原的小星星，一顆也不亮了。男孩吹起喚
  2:['月光湖的水面，沒有月亮的倒影了。男孩吹起喚醒音，湖水慢慢想起歌，一圈一圈，像豎琴。','湖面留著紫色的漣漪，好像有人對著湖面試著唱，唱到一半，停了。'],
  3:['彩虹雲島的彩虹，褪色了。男孩吹起喚醒音，彩虹慢慢想起歌，輕快地跳起舞。','裁縫師說：有一顆星星來借走一條紫色彩帶，問：「怎麼唱，才有感覺？」']};
 const OPEN=3, NEXT=4, NEED=40; let JAR=9;   /* 已開 3 座、下一座是第 4 島、星星罐 9／40（兩週一座島：每週任務 20 次、每次 +1） */
-const DAILY_CAP=5;
 const ISLES=[
   {n:1,name:'星光草原',s:'lit'},{n:2,name:'月光湖',s:'lit'},{n:3,name:'彩虹雲島',s:'lit'},
   {n:6,name:'燈籠森林',s:'fog'},{n:4,name:'棉花雲島',s:'cur'},{n:5,name:'山谷河流',s:'fog'},
@@ -716,13 +715,17 @@ const mname=m=>MN[((m%12)+12)%12]+(Math.floor(m/12)-1);
 let SUCC=12;
 try{const sv=JSON.parse(localStorage.getItem('olm_test_v1')||'null');if(sv){SUCC=sv.succ|0;JAR=Math.max(0,Math.min(NEED,sv.jar|0));}}catch(e){}
 function saveP(){try{localStorage.setItem('olm_test_v1',JSON.stringify({succ:SUCC,jar:JAR}));}catch(e){}}
-function dayLeft(){try{const o=JSON.parse(localStorage.getItem('olm_test_v1')||'null')||{};const d=new Date(),k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();return Math.max(0,DAILY_CAP-(o.day===k?(o.today|0):0));}catch(e){return DAILY_CAP;}}
+function wkKey(){const t=new Date(Date.now()+8*3600e3);t.setUTCDate(t.getUTCDate()-((t.getUTCDay()+6)%7));return t.toISOString().slice(0,10);}
+function wkState(){let n=0,given=0;try{const o=JSON.parse(localStorage.getItem('olm_wk_v2')||'null');
+  if(o&&o.v===2){if(o.week===wkKey()){n=o.tasks['basic-1-1']|0;given=o.given|0;}}
+  else{const w=JSON.parse(localStorage.getItem('olm_weekly_v1')||'null');if(w&&typeof w.perfect==='number'){n=w.perfect;given=Math.min(w.perfect,20);}}}catch(e){}
+  return {n,given};}
 function renderWeekly(){
-  let n=0;try{const o=JSON.parse(localStorage.getItem('olm_weekly_v1')||'null');if(o&&typeof o.perfect==='number')n=o.perfect;}catch(e){}
+  const W=wkState(),n=W.n;
   const e=$('wk-n');if(e)e.textContent=Math.min(n,20)+' / 20'+(n>20?'（累計 '+n+'）':'');
   const t=$('wk-jar-t');if(t)t.textContent=JAR+' / '+NEED;
   const b=$('wk-jar-bar');if(b)b.style.width=(JAR/NEED*100)+'%';
-  const dd=$('wk-day');if(dd)dd.textContent='今天還能拿 '+dayLeft()+' 次星星糖。';
+  const dd=$('wk-day');if(dd)dd.textContent='本週星星糖 '+W.given+' ／ 20。';
 }
 function renderProgress(){
   renderWeekly();
