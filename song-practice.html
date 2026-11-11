@@ -142,10 +142,11 @@ function beatLabel(b){
 }
 
 /* ========== 畫譜（SVG）：依小節範圍動態排版 ========== */
+const ACC_PAD=1.0;   /* 有升降記號的音符，左邊多留的寬度（單位同 wOf） */
 const W=340,CLEF_W=46,ROW_H=106,STEP=4,LINE_GAP=8,AVAIL=W-CLEF_W-6;
 function el(tag,attrs,parent,text){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;if(parent)parent.appendChild(e);return e;}
 function stepOf(n){return (4+n.oct)*7+(n.deg-1)-(4*7+2);}   /* 相對 E4（下加一線）的音階級數；譜面低一個八度 */
-function wOf(n){let w=n.dur>=2?1.7:n.dur>=1?1.3:n.dur>=0.75?1.05:n.dur>=0.5?0.95:0.85;if(!n.rest&&n.acc)w+=0.45;return w;}
+function wOf(n){let w=n.dur>=2?1.7:n.dur>=1?1.3:n.dur>=0.75?1.05:n.dur>=0.5?0.95:0.85;if(!n.rest&&n.acc)w+=ACC_PAD;return w;}
 function barMin(b){return 14+b.notes.reduce((a,n)=>a+wOf(n),0)*15;}
 let R=null;            /* 目前範圍 build() 的結果 */
 function layoutRows(bars){
@@ -176,7 +177,7 @@ function drawScore(){
       const bw=mins[bi]*scale,inner=bw-14,tw=bar.notes.reduce((a,n)=>a+wOf(n),0);
       const isEnd=(r===rows.length-1&&bi===row.length-1);
       let cum=0;
-      bar.notes.forEach(n=>{const w=wOf(n);n.x=x0+7+(cum+w/2)/tw*inner;cum+=w;n.row=r;n.top=top;n.bottom=bottom;});
+      bar.notes.forEach(n=>{const w=wOf(n),pad=(!n.rest&&n.acc)?ACC_PAD:0;n.x=x0+7+(cum+pad+(w-pad)/2)/tw*inner;cum+=w;n.row=r;n.top=top;n.bottom=bottom;});
       x0+=bw;
       const mx=x0;
       el('line',{x1:mx-(isEnd?4:0),x2:mx-(isEnd?4:0),y1:top,y2:bottom,stroke:ink,'stroke-width':1.2},svg);
@@ -212,7 +213,7 @@ function drawScore(){
       const st=stepOf(n),y=bottom-st*STEP;n.y=y;
       for(let s=-2;s>=st;s-=2)el('line',{x1:x-9,x2:x+9,y1:bottom-s*STEP,y2:bottom-s*STEP,stroke:ink2,'stroke-width':1},gEl);
       for(let s=10;s<=st;s+=2)el('line',{x1:x-9,x2:x+9,y1:bottom-s*STEP,y2:bottom-s*STEP,stroke:ink2,'stroke-width':1},gEl);
-      if(n.acc)el('text',{x:x-13,y:y+5,'font-size':14,'font-weight':800,'text-anchor':'middle',fill:ink},gEl,n.acc>0?'♯':'♭');
+      if(n.acc)el('text',{x:x-11.5,y:y+5,'font-size':14,'font-weight':800,'text-anchor':'middle',fill:ink},gEl,n.acc>0?'♯':'♭');
       const hollow=n.dur>=2;
       n.head=el('ellipse',{cx:x,cy:y,rx:5.6,ry:4.2,transform:`rotate(-20 ${x} ${y})`,fill:hollow?'var(--vellum-2)':ink,stroke:ink,'stroke-width':1.6},gEl);
       if(Math.abs(n.dur*4-Math.round(n.dur*4))<1e-9&&[0.75,1.5,3].some(d=>Math.abs(n.dur-d)<1e-9))
@@ -352,11 +353,20 @@ function judge(frames,amps,S,beat,outLat,tol,EV){
     const lo=s-Math.min(0.5*beat,0.8*len),hi=s+Math.min(1.0*beat,0.8*len);
     const minRun=Math.min(0.09,0.5*len);
     let onset=null;
+    if(e.prevSame){   /* 同音連吹：視為前一個音的延續，只判音準；有沒有斷開只提示、不扣分 */
+      const ts0=s+0.25*Math.min(len,beat),te0=Math.max(ts0+0.12,s+len*0.9);
+      const sel0=frames.filter(f=>f.t>=ts0&&f.t<=te0);
+      if(sel0.length<3){r.miss=true;r.pitch='miss';return r;}
+      const med0=median(sel0.map(f=>f.m));
+      r.cents=(med0-target)*100;r.played=Math.round(med0);
+      const ac0=Math.abs(r.cents);
+      r.pitch=ac0<=tol?'ok':(ac0<=70?(r.cents>0?'high':'low'):'wrong');
+      r.timing='ok';   /* 不判拍點；terr 保持 null，不影響整體快慢統計 */
+      r.sameHint=!aOn.some(t=>t>=lo&&t<=hi);
+      return r;
+    }
     for(const ctol of [50,70]){
       const cands=pitchRuns(frames,target,ctol).filter(u=>u.t0>=lo&&u.t0<=hi&&(u.t1-u.t0)>=minRun).map(u=>u.t0);
-      if(e.prevSame){   /* 同音連吹：另用音量起音當候選（起音後 0.04～0.2 秒內音高要對） */
-        aOn.forEach(t=>{if(t>=lo&&t<=hi){const fs=frames.filter(f=>f.t>=t+0.04&&f.t<=t+0.2&&Math.abs((f.m-target)*100)<=ctol);if(fs.length>=2)cands.push(t);}});
-      }
       if(cands.length){onset=cands.reduce((a,b)=>Math.abs(b-s)<Math.abs(a-s)?b:a);break;}
     }
     let ts,te;
@@ -375,7 +385,7 @@ function judge(frames,amps,S,beat,outLat,tol,EV){
         const re=runEnd(frames,target,70,onset);
         if(re!==null&&re<s+Math.min(len*0.7,SUSTAIN_CAP*beat))r.short=true;
       }
-    }else if(e.prevSame)r.sameHint=true;
+    }
     return r;
   });
 }
@@ -397,7 +407,6 @@ function describe(r){
     else if(r.pitch==='wrong')tags.push({c:'bad',t:'吹成 '+jpName(r.played)+'，應該是 '+jpName(e.midi)});
     if(r.timing==='early')tags.push({c:'mid',t:'拍子太早 '+Math.abs(r.terr).toFixed(2)+' 拍'});
     else if(r.timing==='late')tags.push({c:'mid',t:'拍子太晚 '+Math.abs(r.terr).toFixed(2)+' 拍'});
-    else if(r.timing===null&&r.sameHint)tags.push({c:'mid',t:'跟前一個音相同，沒聽出新的一拍（用舌頭輕輕「tu」斷開）'});
     else if(r.timing===null&&r.pitch==='wrong')tags.push({c:'mid',t:'拍子無法判斷（音不對）'});
     else if(r.timing===null)tags.push({c:'mid',t:'起音位置不清楚（可能中間有雜音或不穩）'});
     if(r.short)tags.push({c:'bad',t:'沒吹滿，太早停'});
@@ -613,6 +622,8 @@ function showResult(res){
   const off=$('offTxt');
   if(s.counted&&Math.abs(s.offset)>=0.12)off.textContent='整體來看，你的拍子平均'+(s.offset>0?'偏晚':'偏早')+'約 '+Math.abs(s.offset).toFixed(2)+' 拍。';
   else off.textContent='';
+  const hs=res.filter(r=>r.sameHint&&!r.miss);
+  if(s.counted&&hs.length)off.textContent=(off.textContent?off.textContent+' ':'')+'小提醒（不扣分）：'+hs.map(r=>'第 '+r.e.bar+' 小節 '+beatLabel(r.e.beatInBar)).join('、')+' 是同音連吹，沒聽出斷開，可以用舌頭輕輕「tu」一下。';
   const ul=$('errList');ul.innerHTML='';
   if(!s.bad.length){const li=document.createElement('li');li.textContent='沒有要改的地方，繼續保持！';ul.appendChild(li);}
   s.bad.forEach(r=>{
