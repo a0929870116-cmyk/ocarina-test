@@ -531,7 +531,7 @@ function renderP(){
     $('taskName').textContent='本週任務：'+TASK.name+'　第 '+cfg.from+'–'+cfg.to+' 小節';
     $('barFill').style.width=(d/GOAL*100)+'%';
     $('doneTxt').textContent='正確 '+d+'／'+GOAL+' 次'+(n>GOAL?'（共 '+n+'）':'');
-    $('perfTxt').textContent='總共吹了 '+W.played+' 次　第 '+(W.week+1)+' 週星星糖 '+W.given+'／'+Core.BUDGET+'　本週元素 '+W.elem+'／'+Core.ELEM_CAP;
+    $('perfTxt').textContent='總共吹了 '+W.played+' 次　第 '+(W.week+1)+' 週星星糖 '+W.given+'／'+Core.BUDGET;
     $('doneMsg').hidden=n<GOAL;$('doneMsg').textContent='🎉 本週任務完成！（本週正確 '+n+' 次）';
   }else{
     const n=P.tasks[k]|0,d=Math.min(n,GOAL);

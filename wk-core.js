@@ -12,6 +12,7 @@ const TASKS=[
   {id:'song-pig',type:'song',name:'豬之歌',song:'pig',from:1,to:4,T:20,mock:true}
 ];
 const BUDGET=20,NEED_STAR=40,WK='olm_wk_v2';
+const ELEM_ON=false;   /* 11/12 使用者決定：每週練習先停止掉水晶碎片（碎片只從星空試煉掉）；要恢復改成 true */
 const ELEM_EVERY=2,ELEM_CAP=10;   /* 超過目標的全對，每 ELEM_EVERY 次掉 1 個，每週所有任務合計上限 ELEM_CAP */
 
 /* 權重：三個任務以內一律相同；超過三個時任務一最高、依序遞減 1、0.8、0.6、0.4、0.2（使用者 11/11 定案） */
@@ -28,7 +29,7 @@ function todayKey(){return new Date(Date.now()+8*3600e3).toISOString().slice(0,1
 function weekIdx(start){return Math.max(0,Math.floor((Date.parse(todayKey()+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/864e5/7));}
 function earned(o){const q=qList();let x=0;TASKS.forEach((t,i)=>{x+=Math.min((o.tasks[t.id]||0)/t.T,1)*q[i];});return Math.floor(x+1e-9);}
 function overflow(o){let x=0;TASKS.forEach(t=>{x+=Math.max(0,(o.tasks[t.id]||0)-t.T);});return x;}
-function elemEarned(o){return Math.min(ELEM_CAP,Math.floor(overflow(o)/ELEM_EVERY));}
+function elemEarned(o){if(!ELEM_ON)return 0;return Math.min(ELEM_CAP,Math.floor(overflow(o)/ELEM_EVERY));}
 function load(){
   let o=null;try{o=JSON.parse(localStorage.getItem(WK)||'null');}catch(e){}
   let prev=0;
@@ -83,10 +84,11 @@ function recordPerfect(taskId){try{
   localStorage.setItem('olm_test_v1',JSON.stringify(o));
   save();
   const full=(o.jar|0)>=NEED_STAR;
-  const em=' 本週元素 '+P.elem+'／'+ELEM_CAP;
+  const em=ELEM_ON?' 本週元素 '+P.elem+'／'+ELEM_CAP:'';
   if(ed>0)return '（獲得「'+ename+'」×'+ed+'！'+em+(delta>0?'，另 +'+delta+' 星星糖':'')+'）';
   if(delta>0)return '（+'+delta+' 星星糖，本週已拿 '+P.given+'／'+BUDGET+(full?'，星星罐滿了':'')+'）';
   if(overflow(P)>0){
+    if(!ELEM_ON)return '（星星糖本週拿滿了，次數照算）';
     if(P.elem>=ELEM_CAP)return '（本週元素拿滿了（'+ELEM_CAP+' 個），次數照算）';
     return '（星星糖本週拿滿了；再 '+(ELEM_EVERY-overflow(P)%ELEM_EVERY)+' 次全對掉 1 個元素，'+em.trim()+'）';
   }

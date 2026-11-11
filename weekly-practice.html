@@ -343,7 +343,7 @@ function renderP(){
   const n=P.tasks[TASK.id],d=Math.min(n,GOAL);
   $('barFill').style.width=(d/GOAL*100)+'%';
   $('doneTxt').textContent='正確 '+d+'／'+GOAL+' 次';
-  $('perfTxt').textContent='總共吹了 '+P.played+' 次　第 '+(P.week+1)+' 週星星糖 '+P.given+'／'+BUDGET+'　本週元素 '+P.elem+'／'+ELEM_CAP;
+  $('perfTxt').textContent='總共吹了 '+P.played+' 次　第 '+(P.week+1)+' 週星星糖 '+P.given+'／'+BUDGET;
   $('doneMsg').hidden=n<GOAL;$('doneMsg').textContent='🎉 本週任務完成！（本週正確 '+n+' 次）';
 }
 window.__star={recordPerfect,saveP,earned:Core.earned,elemEarned:Core.elemEarned,overflow:Core.overflow,todayKey:Core.todayKey,weekIdx:Core.weekIdx,loadWK:Core.reload,TASKS,Core,get P(){return Core.P;}};   /* 測試用 */
