@@ -142,6 +142,13 @@ h1{font-family:var(--display);font-size:30px;line-height:1.15;margin:0;font-weig
 .bigstars .off{color:var(--line)}
 .res{display:flex;justify-content:center;gap:18px;color:var(--fg);font-variant-numeric:tabular-nums}
 .res span{color:var(--mute);font-size:12.5px;display:block}
+.drop{display:grid;gap:6px;justify-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.04)}
+.drop .dw{color:var(--mute);font-size:13px}
+.drop .dgems{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.drop .dg{display:flex;align-items:center;gap:6px;color:var(--fg);font-weight:700}
+.drop .dg svg{width:30px;height:30px}
+.drop .dn{color:var(--mute);font-size:12.5px;line-height:1.5}
+.drop .dc{color:var(--accent);font-size:12.5px}
 .banner{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;white-space:nowrap;text-align:center;font-size:13px;background:rgba(255,179,71,.95);color:var(--ink);border-radius:20px;padding:3px 14px;pointer-events:none;font-weight:700;animation:bf 4s forwards}
 @keyframes bf{0%,70%{opacity:1}100%{opacity:0}}
 #pad{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
@@ -210,6 +217,7 @@ h1{font-family:var(--display);font-size:30px;line-height:1.15;margin:0;font-weig
     <div id="pad"></div>
   </section>
 </div>
+<script src="isle-art.js"></script>
 <script>
 (function(){
 'use strict';
@@ -274,6 +282,51 @@ function touchDay(){
   const y=new Date(now.getTime()-864e5);
   save.streak=(save.last===dayStr(y))?save.streak+1:1;
   save.last=t;
+}
+
+
+/* ---------- 星空試煉：晶體掉落與每日首次金幣（暫定規則 11/11，☐ 數值待實測） ----------
+   掉落量依「答錯次數」：0 錯＝2 顆（當島晶體＋其他已開島晶體 1 顆）、1–2 錯＝1 顆（當島）、3 錯以上＝0 顆。
+   每日小遊戲掉落上限 6 顆（與每週練習的上限各自計）；每種晶體背包上限 30。
+   寫入飛船存檔 olm_ship_v1.el；每日紀錄存 olm_arcade_v1。金幣商店還是示範數字，所以 +5 只先記錄。 */
+const ARC_KEY='olm_arcade_v1',SHIP_KEY='olm_ship_v1',ARC_DAY_CAP=6,ARC_KIND_CAP=30,ARC_COIN=5;
+const ARC_ELEM=[['stardust','星塵'],['moonwater','月光水'],['rainbow','彩虹絲'],['cloud','雲絮'],['glowdew','螢光露'],['lantern','燈籠火'],['core','星核砂'],['seaglass','海玻璃'],['note','音符晶'],['aurora','極光冰'],['peak','星峰石'],['ruby','城堡紅玉']];
+function arcRead(k){try{const o=JSON.parse(localStorage.getItem(k)||'null');return o&&typeof o==='object'?o:{};}catch(e){return {};}}
+function dropCount(w){return w<=0?2:w<=2?1:0;}
+function arcSettle(wrong){
+  const A=arcRead(ARC_KEY),S=arcRead(SHIP_KEY),today=dayStr(new Date());
+  if(A.day!==today){A.day=today;A.n=0;A.coin=0;}
+  const out={wrong:wrong,items:[],coin:0,capped:false,full:false,want:dropCount(wrong)};
+  if(!A.coin){A.coin=1;A.coinSum=(A.coinSum|0)+ARC_COIN;out.coin=ARC_COIN;}
+  const isle=(S.isle>=1&&S.isle<=12)?S.isle:4;
+  S.el=S.el||{};S.isle=isle;
+  const ids=[];
+  if(out.want>=1)ids.push(isle);
+  if(out.want>=2)ids.push(isle>1?1+Math.floor(Math.random()*(isle-1)):isle);
+  ids.forEach(n=>{
+    if((A.n|0)>=ARC_DAY_CAP){out.capped=true;return;}
+    const e=ARC_ELEM[n-1];
+    if((S.el[e[0]]|0)>=ARC_KIND_CAP){out.full=true;return;}
+    S.el[e[0]]=(S.el[e[0]]|0)+1;A.n=(A.n|0)+1;
+    out.items.push({n:n,id:e[0],name:e[1]});
+  });
+  try{localStorage.setItem(ARC_KEY,JSON.stringify(A));localStorage.setItem(SHIP_KEY,JSON.stringify(S));}catch(e){}
+  out.left=Math.max(0,ARC_DAY_CAP-(A.n|0));
+  return out;
+}
+function dropHTML(d){
+  if(!d)return '';
+  let h='<div class="drop"><div class="dw">這次答錯 '+d.wrong+' 次</div>';
+  if(d.items.length){
+    h+='<div class="dgems">'+d.items.map(it=>'<span class="dg">'+(window.ISLE_ART?ISLE_ART.crystal(it.n,30):'◆')+'<span>'+it.name+' ×1</span></span>').join('')+'</div>';
+    h+='<div class="dn">'+(d.want>=2&&d.items.length>=2?'全對，多掉一顆稀有晶體！':'獲得晶體！')+'到「飛行船」提煉升級。</div>';
+  }else if(d.want===0){
+    h+='<div class="dn">這次沒有掉晶體。答錯 2 次以內就會掉，再挑戰一次！</div>';
+  }
+  if(d.capped)h+='<div class="dn">今天的晶體掉落已達上限（'+ARC_DAY_CAP+' 顆），明天再來！</div>';
+  if(d.full)h+='<div class="dn">這種晶體的背包滿了（'+ARC_KIND_CAP+' 顆），先去飛行船提煉用掉吧！</div>';
+  if(d.coin)h+='<div class="dc">今天第一次玩，金幣 +'+d.coin+'（測試版：金幣還沒接商店，先記錄）</div>';
+  return h+'</div>';
 }
 
 
@@ -445,6 +498,8 @@ const api={
       save.stars[gdef.id]=Math.max(save.stars[gdef.id]||0,res.stars);
       persist();
       Track.add(gdef.id,gdef.name.replace(/（.*）/,''),res.stars,res.stats);
+      const w=(typeof res.wrong==='number')?res.wrong:({3:0,2:1})[res.stars];   /* 沒有答錯次數的遊戲（長音養龍、指法衝刺）：3★＝0 錯、2★＝1 錯、1★＝3 錯 */
+      res.drop=arcSettle(w===undefined?3:Math.max(0,Math.round(w)));
     }
     if(res.stars>0)Snd.sfx('win');
     showResult(res);
@@ -534,6 +589,7 @@ function showResult(res){
   let h='<div class="box"><h3>'+(demo?'示範結束':res.title||'完成！')+'</h3>';
   if(!demo)h+='<div class="bigstars">'+stars(res.stars)+'</div>';
   h+='<div class="res">'+(res.stats||[]).map(s=>'<div>'+s[1]+'<span>'+s[0]+'</span></div>').join('')+'</div>';
+  if(!demo)h+=dropHTML(res.drop);
   if(res.note)h+='<p>'+res.note+'</p>';
   h+='<div class="chips"><button class="btn" id="again">'+(demo?'換我玩':'再玩一次')+'</button>'+(demo?'<button class="btn ghost" id="again2">再看一次</button>':'')+'<button class="btn ghost" id="home">回選單</button></div></div>';
   ov.innerHTML=h;ov.hidden=false;
@@ -1066,7 +1122,7 @@ GAMES.push({id:'fall',name:'旋律瀑布',tag:'節奏 · 音階',color:'#ff9a3c'
     if(time>=endAt){
       const tot=notes.length,acc=(perf+good*.6)/tot;
       const st=acc>=.85?3:acc>=.6?2:1;
-      api.finish({stars:st,title:acc>=.85?'吹得好漂亮！':'吹完一首了！',stats:[['完美',perf],['不錯',good],['漏掉',miss],['最長連擊',best]],
+      api.finish({wrong:miss,stars:st,title:acc>=.85?'吹得好漂亮！':'吹完一首了！',stats:[['完美',perf],['不錯',good],['漏掉',miss],['最長連擊',best]],
         note:acc>=.85?'試試看「快」速度，或換隨機新樂句。':'慢速多吹幾次，就會越來越穩。'});
     }
   };
@@ -1172,14 +1228,14 @@ GAMES.push({id:'fly',name:'音高飛行',tag:'音高 · 聽音',color:'#34d1c6',
         api.score(passed+'/'+TOTAL);
         if(lives<=0){
           if(heldVoice){heldVoice.off();heldVoice=null;}
-          api.finish({stars:passed>=8?1:0,title:'再飛一次！',stats:[['穿過',passed+'/'+TOTAL]],note:passed>=8?'':'先用「看著吹」，熟了再挑戰聽音。'});return;
+          api.finish({wrong:3,stars:passed>=8?1:0,title:'再飛一次！',stats:[['穿過',passed+'/'+TOTAL]],note:passed>=8?'':'先用「看著吹」，熟了再挑戰聽音。'});return;
         }
       }
     }
     pop.forEach(p=>p.t-=dt*1.4);pop=pop.filter(p=>p.t>0);
     if(gates[gates.length-1].done&&lives>0){
       if(heldVoice){heldVoice.off();heldVoice=null;}
-      api.finish({stars:lives,title:'全部飛過！',stats:[['穿過',passed+'/'+TOTAL],['剩餘愛心',lives]],note:lives===3?'可以換「聽音吹」挑戰了。':'再試一次，拿滿三顆星。'});
+      api.finish({wrong:3-lives,stars:lives,title:'全部飛過！',stats:[['穿過',passed+'/'+TOTAL],['剩餘愛心',lives]],note:lives===3?'可以換「聽音吹」挑戰了。':'再試一次，拿滿三顆星。'});
     }
   };
   g.draw=function(c,W,H){
@@ -1281,9 +1337,9 @@ GAMES.push({id:'ninja',name:'音符忍者',tag:'視譜 · 反應',color:'#a78bfa
   };
   g.up=function(){};
   function check(){
-    if(lives<=0){api.finish({stars:cleared>=10?1:0,title:'再挑戰！',stats:[['切開',cleared+'/'+TOTAL]],note:'先選「Do–Sol」，簡譜數字會幫你。'});return true;}
+    if(lives<=0){api.finish({wrong:3,stars:cleared>=10?1:0,title:'再挑戰！',stats:[['切開',cleared+'/'+TOTAL]],note:'先選「Do–Sol」，簡譜數字會幫你。'});return true;}
     if(notes.every(n=>n.state!==0)){
-      api.finish({stars:Math.max(1,lives),title:lives===3?'一個都沒漏！':'完成！',stats:[['切開',cleared+'/'+TOTAL],['最長連續',best],['剩餘愛心',lives]],note:lives===3?'換「Do–高Do」挑戰更多音。':'再玩一次拿滿三顆星。'});return true;
+      api.finish({wrong:3-lives,stars:Math.max(1,lives),title:lives===3?'一個都沒漏！':'完成！',stats:[['切開',cleared+'/'+TOTAL],['最長連續',best],['剩餘愛心',lives]],note:lives===3?'換「Do–高Do」挑戰更多音。':'再玩一次拿滿三顆星。'});return true;
     }
     return false;
   }
@@ -1582,7 +1638,7 @@ GAMES.push({id:'echo',name:'回音森林',tag:'聽音 · 記憶',color:'#ff8aa0'
         winAtL++;if(winAtL>=2&&L<8){L++;winAtL=0;}
         if(round>=ROUNDS){
           at(1.2,()=>{const st=clean>=6?3:clean>=4?2:1;
-            api.finish({stars:st,title:'森林都在回應你',stats:[['一次就對',clean+'/'+ROUNDS],['最長樂句',L+' 個音']],note:st<3?'五聲音階比較容易，全音階更有挑戰。':'換「全音階」試試！'});});
+            api.finish({wrong:ROUNDS-clean,stars:st,title:'森林都在回應你',stats:[['一次就對',clean+'/'+ROUNDS],['最長樂句',L+' 個音']],note:st<3?'五聲音階比較容易，全音階更有挑戰。':'換「全音階」試試！'});});
         }else at(1.1,()=>api.gate(newPhrase,'下一題 ▶'));
       }
     }else{
@@ -1703,7 +1759,7 @@ GAMES.push({id:'finger',name:'指法拼圖',tag:'指法 · 對應',color:'#f2c23
     q++;
     if(q>=Q){
       const st=first>=9?3:first>=6?2:1;
-      api.finish({stars:st,title:st===3?'指法很熟了！':'完成！',stats:[['一次就對',first+'/'+Q],['答錯次數',wrongs]],
+      api.finish({wrong:wrongs,stars:st,title:st===3?'指法很熟了！':'完成！',stats:[['一次就對',first+'/'+Q],['答錯次數',wrongs]],
         note:mode===0?'換「自己蓋孔」，從音名反推指法更難。':'回到各款遊戲，看看音鍵上的指法是不是越來越熟。'});
     }else nextQ(true);
   }
@@ -1894,7 +1950,7 @@ GAMES.push({id:'rhythm',name:'節奏鼓手',tag:'節奏 · 拍點',color:'#ff7a5
   }
   function fin2(){
     const st=first2>=7?3:first2>=5?2:1;
-    api.finish({stars:st,title:st===3?'耳朵聽得出節奏！':'完成！',stats:[['一次就對',first2+'/'+Q2],['答錯次數',wrong2]],
+    api.finish({wrong:wrong2,stars:st,title:st===3?'耳朵聽得出節奏！':'完成！',stats:[['一次就對',first2+'/'+Q2],['答錯次數',wrong2]],
       note:st===3?'換快一點的速度，或回到「跟著拍」挑戰。':'多聽幾次，先找出有幾個音、哪裡比較密。'});
   }
   function choose2(k){
@@ -1959,7 +2015,7 @@ GAMES.push({id:'rhythm',name:'節奏鼓手',tag:'節奏 · 拍點',color:'#ff7a5
     }
     if(phase==='result'){resT-=dt;if(resT<=0){r++;if(r>=R){
         const acc=sumAcc/R,st=acc>=.85?3:acc>=.6?2:1;
-        api.finish({stars:st,title:st===3?'節奏很穩！':'完成！',stats:[['準',perfN],['不錯',goodN],['漏拍',missN],['多打',extraN]],
+        api.finish({wrong:missN+extraN,stars:st,title:st===3?'節奏很穩！':'完成！',stats:[['準',perfN],['不錯',goodN],['漏拍',missN],['多打',extraN]],
           note:BPMS.indexOf(Math.round(60/beat))<2?'換快一點的速度挑戰看看。':'已經是最快速度了，很厲害。'});
       }else nextRound(true);}return;}
     if(phase==='wait'){pulse=Math.max(0,pulse-dt*5);return;}
@@ -2067,7 +2123,7 @@ GAMES.push({id:'ear',name:'聽音偵探',tag:'聽辨 · 音準',color:'#8b7cf6',
   function advance(){
     q++;
     if(q>=Q){const st=first>=9?3:first>=6?2:1;
-      api.finish({stars:st,title:st===3?'耳朵很準！':'完成！',stats:[['一次就對',first+'/'+Q],['答錯次數',wrongs]],
+      api.finish({wrong:wrongs,stars:st,title:st===3?'耳朵很準！':'完成！',stats:[['一次就對',first+'/'+Q],['答錯次數',wrongs]],
         note:easy?'換「全部八個音」，連 Re、Fa、La、Si 都要認出來。':mode===0?'換「比高低」，練兩個音的距離感。':'再玩一次，聽聽差一個音的兩個音。'});
     }else nextQ(true);
   }
@@ -2221,7 +2277,7 @@ GAMES.push({id:'follow',name:'跟著吹',tag:'收音 · 音準',color:'#C8963A',
     block=t;idx++;hold=0;lb=-1;flash=1;
     if(idx>=seq.length){
       const r=wrongs/seq.length,st=r<=.15?3:r<=.5?2:1;
-      api.finish({stars:st,title:st===3?'每個音都很準！':'完成！',stats:[['吹過的音',seq.length],['吹錯次數',wrongs]],
+      api.finish({wrong:wrongs,stars:st,title:st===3?'每個音都很準！':'完成！',stats:[['吹過的音',seq.length],['吹錯次數',wrongs]],
         note:st===3?'換「吹穩 1.2 秒」或換一首曲子挑戰。':'吹錯時先看指法圖，再慢慢吹穩，準度會一直進步。'});
       return;
     }
@@ -2374,7 +2430,7 @@ GAMES.push({id:'tube',name:'複管指法（測試版）',tag:'複管 · 測試',
   function advance(){
     q++;
     if(q>=Q){const st=first>=9?3:first>=6?2:1;
-      api.finish({stars:st,title:st===3?'複管指法很熟了！':'完成！',stats:[['一次就對',first+'/'+Q],['答錯次數',wrongs]],
+      api.finish({wrong:wrongs,stars:st,title:st===3?'複管指法很熟了！':'完成！',stats:[['一次就對',first+'/'+Q],['答錯次數',wrongs]],
         note:mode===0?'換「看音名 → 選指法」，從音名反推指法更難。':'回到「看指法 → 選音名」，看看換管是不是更快了。'});
     }else nextQ(true);
   }
