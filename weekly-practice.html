@@ -47,6 +47,12 @@ ul.errs li b{font-weight:800}
 .tag.bad{background:var(--ruby)}.tag.mid{background:var(--amber)}
 .legend{display:flex;gap:12px;font-size:12px;color:var(--ink-2);margin-top:6px;flex-wrap:wrap}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
+.gauge{position:relative;height:26px;margin:8px 0 4px;border:2px solid var(--ink-2);border-radius:13px;background:linear-gradient(90deg,#f3d9c8,#fff8 38%,#fff8 62%,#f3d9c8);overflow:hidden}
+.gauge .zone{position:absolute;top:0;bottom:0;background:#8fc9a0aa;border-left:2px solid var(--green);border-right:2px solid var(--green)}
+.gauge .needle{position:absolute;top:-2px;bottom:-2px;width:6px;margin-left:-3px;border-radius:3px;background:var(--ink);transition:left .08s linear,opacity .2s;opacity:.15}
+.gauge .gl,.gauge .gr{position:absolute;top:3px;font-size:12px;color:var(--ink-2)}
+.gauge .gl{left:8px}.gauge .gr{right:8px}
+.gtext{text-align:center;font-size:20px;font-weight:800;min-height:30px}
 .vol{height:8px;border-radius:5px;background:#fff8;border:1.5px solid var(--ink-2);overflow:hidden;margin-top:6px}
 .vol i{display:block;height:100%;width:0;background:var(--green)}
 [hidden]{display:none!important}
@@ -77,6 +83,8 @@ ul.errs li b{font-weight:800}
     <div id="liveBox" hidden>
       <div class="count" id="count">—</div>
       <div class="live" id="live">&nbsp;</div>
+      <div class="gauge" id="gauge" aria-hidden="true"><span class="gl">太低</span><div class="zone" id="gZone"></div><i class="needle" id="gNeedle"></i><span class="gr">太高</span></div>
+      <div class="gtext" id="gText" role="status" aria-live="off">&nbsp;</div>
       <div class="vol"><i id="volBar"></i></div>
     </div>
   </section>
@@ -87,7 +95,7 @@ ul.errs li b{font-weight:800}
     <div class="row"><label for="bpm">速度</label>
       <select id="bpm"><option value="50">♩=50（慢）</option><option value="60" selected>♩=60（標準）</option><option value="72">♩=72（稍快）</option></select></div>
     <div class="row"><label for="tol">音準容許</label>
-      <select id="tol"><option value="10" selected>±10 音分</option><option value="15">±15 音分</option><option value="25">±25 音分（鬆）</option></select></div>
+      <select id="tol"><option value="10" selected>±10 音分</option><option value="15">±15 音分</option><option value="25">±25 音分（鬆）</option><option value="40">±40 音分（很鬆）</option></select></div>
     <p class="hint">按下後先聽 4 拍預備拍，第 5 拍開始照譜吹，每音一拍（最後的音兩拍）。音準、節拍都對，才算一次「正確」，正確次數會累計。建議戴耳機，節拍聲才不會被麥克風收進去。</p>
     <div class="err" id="errMsg" hidden></div>
   </section>
@@ -435,6 +443,20 @@ function click(t,accent){
   o.connect(g);g.connect(ctx.destination);o.start(t);o.stop(t+0.06);
   return {o,g};
 }
+/* 即時音準提示：指針＝你吹的音比「現在這一拍該吹的音」高或低多少；綠區＝目前的音準容許範圍 */
+let gScale=60,gTol=10;
+function r0Gauge(tol){
+  gTol=tol;gScale=Math.max(60,tol*1.6);
+  const z=$('gZone');z.style.left=(50-tol/gScale*50)+'%';z.style.width=(tol/gScale*100)+'%';
+  $('gNeedle').style.opacity=.15;$('gNeedle').style.left='50%';$('gText').textContent=' ';
+}
+function showGauge(diff,nr){
+  const nd=$('gNeedle'),tx=$('gText'),ac=Math.abs(diff);
+  nd.style.opacity=1;nd.style.left=(50+Math.max(-1,Math.min(1,diff/gScale))*50)+'%';
+  if(ac<=gTol){tx.textContent='✓ 很準';tx.style.color='var(--green)';}
+  else if(ac<=100){tx.textContent=(diff>0?'偏高了 ':'偏低了 ')+Math.round(ac)+' 音分，'+(diff>0?'低一點':'高一點');tx.style.color=ac<=gTol+20?'var(--ink)':'var(--ruby)';}
+  else{tx.textContent='吹到「'+jpName(nr)+'」了，'+(diff>0?'太高':'太低');tx.style.color='var(--ruby)';}
+}
 function setLive(c,l){$('count').textContent=c;$('live').textContent=l||' ';}
 
 async function startRun(){
@@ -448,6 +470,7 @@ async function startRun(){
   for(let k=0;k<COUNT_IN+TOTAL_BEATS;k++){const t=T0+k*beat;clicks.push(t);nodes.push(click(t,k%4===0));}
   run={bpm,beat,tol,T0,S,clicks,nodes,frames:[],hist:[],raw:0,lastBeat:-1,outLat:(ctx.outputLatency||0)+(ctx.baseLatency||0),done:false};
   resetPaint();
+  r0Gauge(tol);
   $('resCard').hidden=true;$('liveBox').hidden=false;
   $('goBtn').hidden=true;$('stopBtn').hidden=false;$('goBtn').disabled=false;
   $('bpm').disabled=true;$('tol').disabled=true;
@@ -499,8 +522,10 @@ function loop(){
   if(!detected&&!nearClick)r.hist=[];
   if(voiced&&bi>=COUNT_IN&&bi<COUNT_IN+TOTAL_BEATS){
     const m=median(r.hist),nr=Math.round(m);
-    $('live').textContent='聽到：'+jpName(nr)+'（'+(m-nr>=0?'+':'')+Math.round((m-nr)*100)+' 音分）';
+    const tb=(now-r.outLat-0.1-r.S)/r.beat,tn=NOTES.find(n=>tb>=n.beat&&tb<n.beat+n.dur);
+    if(tn){showGauge((m-tn.midi)*100,nr);r.gT=now;}
   }
+  if(r.gT&&now-r.gT>0.35){$('gNeedle').style.opacity=.15;$('gText').textContent=' ';r.gT=0;}
   if(now>=r.S+(TOTAL_BEATS+0.6)*r.beat){finish();}
 }
 function finish(){
