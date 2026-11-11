@@ -455,14 +455,11 @@ a.btn{text-decoration:none}
     </section>
   </div>
 
-  <!-- ===== 飛行船（只留位置） ===== -->
+  <!-- ===== 飛行船：凱爾特飛船工坊（ship-workshop.html，用 iframe 載入；同網域共用存檔） ===== -->
   <div class="view" id="v-ship" hidden>
     <section class="page card" aria-labelledby="ship-h">
-      <div class="sec-head" style="margin:0"><h2 id="ship-h">飛行船</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg></div>
-      <div class="live">
-        <svg style="width:64px;height:64px;color:var(--green)" aria-hidden="true"><use href="#n-ship"/></svg>
-        <p class="hint">畫面等設定收齊後再設計</p>
-      </div>
+      <div class="sec-head" style="margin:0 0 10px"><h2 id="ship-h">飛行船</h2><span class="rule"></span><svg class="tri" aria-hidden="true"><use href="#i-tri"/></svg></div>
+      <iframe id="ship-frame" title="凱爾特飛船工坊" scrolling="no" style="display:block;width:100%;height:760px;border:0;border-radius:8px"></iframe>
     </section>
   </div>
 
@@ -531,6 +528,17 @@ const CRIT={1:['星光草','毛球精靈'],2:['月光睡蓮','月亮魚'],3:['�
 /* 和外殼（整合測試頁）溝通：外殼負責背景音樂與故事序章 */
 function toParent(m){try{if(parent!==window){parent.postMessage(m,'*');return true}}catch(e){}return false}
 
+/* 飛行船：第一次進來才載入工坊頁；之後每次進來叫它重讀存檔（練習頁可能剛掉了元素、完成了任務） */
+function openShip(){
+  const f=$('ship-frame');
+  if(!f.getAttribute('src'))f.src='ship-workshop.html';
+  else try{f.contentWindow.postMessage({type:'ship-refresh'},'*');}catch(e){}
+}
+window.addEventListener('message',e=>{
+  const d=e.data;
+  if(d&&d.type==='ship-h'&&e.source===$('ship-frame').contentWindow&&d.h>200)$('ship-frame').style.height=Math.ceil(d.h)+'px';
+});
+
 /* 頁面切換（網址 # 後面只放 map / practice / shop / ship / isle / dex） */
 const VIEWS=['map','practice','shop','ship','isle','dex'];
 function show(v){
@@ -540,6 +548,7 @@ function show(v){
   const hi=(v==='isle'||v==='dex')?'map':v;
   document.querySelectorAll('.nav button').forEach(b=>{if(b.dataset.go===hi)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   toParent({type:'practice',on:v==='practice'});   /* 進練習頁關背景音樂，離開再恢復 */
+  if(v==='ship')openShip();
   window.scrollTo(0,0);
 }
 function go(v){try{location.hash=v;}catch(e){}show(v);}

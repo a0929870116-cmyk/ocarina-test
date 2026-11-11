@@ -356,6 +356,15 @@ function loadWK(){
 }
 let P=loadWK();
 function saveP(){try{localStorage.setItem(WK,JSON.stringify(P));}catch(e){}}
+/* 元素種類（第 3 步）：每島一種，依「目前練習的島」掉落。目前的島存在飛船存檔 olm_ship_v1 的 isle（預設 4，測試版不真的開島）；要和 ship-workshop.html 的元素順序一致 */
+const ISLE_ELEM=[['stardust','星塵'],['moonwater','月光水'],['rainbow','彩虹絲'],['cloud','雲絮'],['glowdew','螢光露'],['lantern','燈籠火'],['core','星核砂'],['seaglass','海玻璃'],['note','音符晶']];
+function addTypedElem(n){
+  const o=JSON.parse(localStorage.getItem('olm_ship_v1')||'null')||{};
+  const isle=(o.isle>=1&&o.isle<=9)?o.isle:4,e=ISLE_ELEM[isle-1];
+  o.el=o.el||{};o.el[e[0]]=(o.el[e[0]]|0)+n;o.isle=isle;
+  localStorage.setItem('olm_ship_v1',JSON.stringify(o));
+  return e[1];
+}
 /* 全對一次：記次數、算本週該拿幾顆、把新增的加進遊戲頁存檔（olm_test_v1 的 jar，上限 40）。回傳畫面提示 */
 function recordPerfect(){try{
   P.tasks[TASK_ID]++;P.total=(P.total|0)+1;
@@ -364,11 +373,12 @@ function recordPerfect(){try{
   o.succ=(o.succ|0)+1;
   if(delta>0){P.given+=delta;o.jar=Math.min(NEED_STAR,(o.jar|0)+delta);}
   const ed=elemEarned(P)-P.elem;
-  if(ed>0){P.elem+=ed;P.bag=(P.bag|0)+ed;}
+  let ename='';
+  if(ed>0){P.elem+=ed;P.bag=(P.bag|0)+ed;ename=addTypedElem(ed);}
   localStorage.setItem('olm_test_v1',JSON.stringify(o));
   const full=(o.jar|0)>=NEED_STAR;
   const em=' 本週元素 '+P.elem+'／'+ELEM_CAP;
-  if(ed>0)return '（獲得 '+ed+' 個元素！'+em+(delta>0?'，另 +'+delta+' 星星糖':'')+'）';
+  if(ed>0)return '（獲得「'+ename+'」×'+ed+'！'+em+(delta>0?'，另 +'+delta+' 星星糖':'')+'）';
   if(delta>0)return '（+'+delta+' 星星糖，本週已拿 '+P.given+'／'+BUDGET+(full?'，星星罐滿了':'')+'）';
   if(overflow(P)>0){
     if(P.elem>=ELEM_CAP)return '（本週元素拿滿了（'+ELEM_CAP+' 個），次數照算）';
