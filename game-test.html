@@ -714,7 +714,7 @@ const BK={n:1,i:0};
 function bkSplit(t){const c=t.indexOf('。')+1;return c?[t.slice(0,c),t.slice(c)]:[t,''];}
 function renderBook(dir){
   const n=BK.n,i=BK.i,I=ISLE_ART.info(n),A=ISLE_ART.data[n-1],k=(n-1)*2+i,T=OPEN*2;
-  const [main,rest]=bkSplit(i?I.aEco:I.pEco);
+  const [main,rest]=i?[I.aEco,'']:bkSplit(I.pEco);   /* 動物：外型整段放主文；植物：第一句主文、其餘收進觀察筆記 */
   const hx=A.c.slice(1),[r,g,b]=[0,2,4].map(q=>parseInt(hx.substr(q,2),16));
   const bg='radial-gradient(circle at 50% 52%,rgba(255,255,255,.9) 0,rgba('+r+','+g+','+b+',.22) 60%,rgba('+r+','+g+','+b+',.38) 100%),var(--vellum)';
   const note=i?'<div class="bk-food"><div class="pic">'+ISLE_ART.food(n,68)+'<small>'+ISLE_ART.foodName(n)+'</small></div><p>'+I.aFood+'</p></div>':'<p>'+I.pNote+'</p>';
