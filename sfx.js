@@ -46,6 +46,7 @@
       if(kind==='tap'){blip(c,t,880,1175,.07,.10,'sine');}
       else if(kind==='nav'){blip(c,t,660,880,.08,.10,'sine');blip(c,t+.045,990,0,.07,.05,'sine');}
       else if(kind==='ok'){[1047,1319,1568].forEach(function(f,k){blip(c,t+k*.09,f,0,.22,.13,'sine');blip(c,t+k*.09,f*2,0,.14,.03,'sine');});}
+      else if(kind==='snap'){blip(c,t,1319,1760,.09,.09,'sine');blip(c,t,2637,0,.06,.025,'sine');}
       else if(kind==='bad'){blip(c,t,330,262,.16,.12,'triangle');blip(c,t+.15,262,208,.24,.12,'triangle');}
     }catch(e){}
   }
@@ -55,6 +56,7 @@
     nav:function(){play('nav');},
     ok:function(){play('ok');},
     bad:function(){play('bad');},
+    snap:function(){play('snap');},
     mic:function(b){micOn=!!b;},
     probe:null,
     setOn:function(b){off=!b;try{localStorage.setItem('olm_sfx_off',b?'0':'1');}catch(e){}},
