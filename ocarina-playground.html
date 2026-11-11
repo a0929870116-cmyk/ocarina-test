@@ -297,7 +297,9 @@ function arcSettle(wrong){
   const A=arcRead(ARC_KEY),S=arcRead(SHIP_KEY),today=dayStr(new Date());
   if(A.day!==today){A.day=today;A.n=0;A.coin=0;}
   const out={wrong:wrong,items:[],coin:0,capped:false,full:false,want:dropCount(wrong)};
-  if(!A.coin){A.coin=1;A.coinSum=(A.coinSum|0)+ARC_COIN;out.coin=ARC_COIN;}
+  if(!A.coin){A.coin=1;A.coinSum=(A.coinSum|0)+ARC_COIN;out.coin=ARC_COIN;
+    try{const T=arcRead('olm_test_v1');T.coins=(T.coins==null?86:(T.coins|0))+ARC_COIN;localStorage.setItem('olm_test_v1',JSON.stringify(T));}catch(e){}   /* 金幣入帳（商店錢包） */
+  }
   const isle=(S.isle>=1&&S.isle<=12)?S.isle:4;
   S.el=S.el||{};S.isle=isle;
   const ids=[];
@@ -325,7 +327,7 @@ function dropHTML(d){
   }
   if(d.capped)h+='<div class="dn">今天的晶體掉落已達上限（'+ARC_DAY_CAP+' 顆），明天再來！</div>';
   if(d.full)h+='<div class="dn">這種晶體的背包滿了（'+ARC_KIND_CAP+' 顆），先去飛行船提煉用掉吧！</div>';
-  if(d.coin)h+='<div class="dc">今天第一次玩，金幣 +'+d.coin+'（測試版：金幣還沒接商店，先記錄）</div>';
+  if(d.coin)h+='<div class="dc">今天第一次玩，金幣 +'+d.coin+'（已存進商店金幣）</div>';
   return h+'</div>';
 }
 

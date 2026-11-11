@@ -594,14 +594,46 @@ const IMG={'it_bg_rcloud':'data:image/webp;base64,UklGRlxZAABXRUJQVlA4WAoAAAAQAA
 const $=id=>document.getElementById(id);
 const STORY={1:['星光草原的小星星，一顆也不亮了。男孩吹起喚醒音，草原的星星慢慢想起歌，輕輕地唱，像搖籃曲。','草叢裡壓平了一小塊，留著一點紫色星塵，好像有人在這裡坐了一整夜，聽歌。'],
  2:['月光湖的水面，沒有月亮的倒影了。男孩吹起喚醒音，湖水慢慢想起歌，一圈一圈，像豎琴。','湖面留著紫色的漣漪，好像有人對著湖面試著唱，唱到一半，停了。'],
- 3:['彩虹雲島的彩虹，褪色了。男孩吹起喚醒音，彩虹慢慢想起歌，輕快地跳起舞。','裁縫師說：有一顆星星來借走一條紫色彩帶，問：「怎麼唱，才有感覺？」']};
-const OPEN=(()=>{const v=Math.floor(Number(new URLSearchParams(location.search).get('open')));return v>=1&&v<=12?v:3;})(), NEXT=4, NEED=40; let JAR=9;   /* 已開 3 座、下一座是第 4 島、星星罐 9／40（兩週一座島：每週任務 20 次、每次 +1） */
+ 3:['彩虹雲島的彩虹，褪色了。男孩吹起喚醒音，彩虹慢慢想起歌，輕快地跳起舞。','裁縫師說：有一顆星星來借走一條紫色彩帶，問：「怎麼唱，才有感覺？」'],
+ 4:['棉花雲島的雲飄不動了，孩子們也不笑了。男孩吹起喚醒音，雲慢慢想起歌，像孩子們圍成圈笑。','雲說：半夜有一顆星星，哼著不成調的歌，哼著哼著，哭了。'],
+ 5:['山谷的河水變細了。男孩吹起喚醒音，山谷慢慢想起歌，回音繞著山谷，一層一層。','螢火蟲說：那顆紫色的星星來過，說他的歌「準，但是空的」。'],
+ 6:['燈籠熄了，小餐館裡一個客人也沒有。男孩吹起喚醒音，森林慢慢想起歌，低低暖暖的，像湯在咕嘟咕嘟。','餐館老闆說：有一顆星星在門外聽了一整晚，說：「好暖，可是我的歌是冷的。」'],
+ 7:['燈塔的光變弱了。男孩吹起喚醒音，燈塔慢慢想起歌，長長的，像在問路。','燈塔守護者說：星星問：「哪裡聽得到有感情的歌？」然後往更遠的地方去了。'],
+ 8:['貝殼收音機沒有聲音了。男孩吹起喚醒音，海灘慢慢想起歌，明亮溫暖，像浪一起一伏。','貝殼裡錄到一小段陌生的歌，不太準，可是很用力。'],
+ 9:['音符花都不開了。男孩吹起喚醒音，花園慢慢想起歌，清清亮亮的，像花一朵一朵開。','花園裡，開著唯一一朵紫色的音符花。']};
+/* ===== 存檔（olm_test_v1：{succ,jar,open,coins,own,worn}）：一律「讀舊值再合併」寫回，避免蓋掉別頁（wk-core、星空試煉、飛船工具）寫的欄位 ===== */
+const SVK='olm_test_v1';
+function rdSave(){try{return JSON.parse(localStorage.getItem(SVK)||'null')||{};}catch(e){return {};}}
+function wrSave(p){try{localStorage.setItem(SVK,JSON.stringify(Object.assign(rdSave(),p)));}catch(e){}}
+const COIN0=86, OPEN_COIN=30, MAXOPEN=9, NEED=40;   /* 金幣初始 86（測試版示範值）；開島謝禮每島 30；目前只有第 1～9 島可開；星星罐 40 顆 */
+const OPEN_Q=(()=>{const v=Math.floor(Number(new URLSearchParams(location.search).get('open')));return v>=1&&v<=12?v:0;})();   /* ?open=N：只改畫面（測圖鑑），不結算、不存檔 */
+let JAR=9; const PEND=[];   /* PEND：這次載入時剛開的島（載入完成後依序播開島畫面） */
+const OPEN=(()=>{
+  const sv=rdSave();let o=(sv.open>=1&&sv.open<=MAXOPEN)?(sv.open|0):3;
+  let j=sv.jar==null?9:Math.max(0,sv.jar|0);
+  if(!OPEN_Q){
+    let c=sv.coins==null?COIN0:(sv.coins|0);
+    while(j>=NEED&&o<MAXOPEN){j-=NEED;o++;PEND.push(o);c+=OPEN_COIN;}
+    if(o>=MAXOPEN)j=Math.min(j,NEED);
+    if(PEND.length){
+      wrSave({jar:j,open:o,coins:c});
+      try{const sh=JSON.parse(localStorage.getItem('olm_ship_v1')||'null')||{};sh.isle=o<MAXOPEN?o+1:MAXOPEN;localStorage.setItem('olm_ship_v1',JSON.stringify(sh));}catch(e){}   /* 目前練習的島＝下一座要開的島（晶體掉落依此） */
+    }else if(sv.jar!=null&&(sv.jar|0)!==j)wrSave({jar:j});
+  }
+  JAR=j;
+  return OPEN_Q||o;
+})();
+const NEXT=OPEN<MAXOPEN?OPEN+1:0;   /* 0＝第 1～9 島都開了，第 10 島以後還沒上架 */
+const COINS_NOW=()=>{const s=rdSave();return s.coins==null?COIN0:(s.coins|0);};
+function renderCoins(){const e=$('coins');if(e)e.textContent=COINS_NOW();}
+function addCoins(d){wrSave({coins:COINS_NOW()+d});renderCoins();}
 const ISLES=[
   {n:1,name:'星光草原',s:'lit'},{n:2,name:'月光湖',s:'lit'},{n:3,name:'彩虹雲島',s:'lit'},
   {n:6,name:'燈籠森林',s:'fog'},{n:4,name:'棉花雲島',s:'cur'},{n:5,name:'山谷河流',s:'fog'},
   {n:8,name:'海灘',s:'fog'},{n:7,name:'星系燈塔',s:'fog'},{n:9,name:'音符花園',s:'fog'},
   {n:10,name:'極光冰原',s:'soon'},{n:11,name:'山頂星峰',s:'soon'},{n:12,name:'神祕城堡',s:'soon'}
 ];
+ISLES.forEach(I=>{I.s=(I.n<=OPEN&&I.n<=MAXOPEN)?'lit':I.n===NEXT?'cur':I.n<=MAXOPEN?'fog':'soon';});   /* 依已開島數決定地圖格狀態 */
 /* 各島動植物（名稱暫擬，圖示待定） */
 const CRIT=Object.fromEntries(ISLE_ART.data.map(d=>[d.n,[d.plant,d.animal]]));   /* 外型圖示在 isle-art.js */
 
@@ -710,26 +742,49 @@ const SHOP=[
  {id:'bg_island',g:'more',name:'浮空島',price:30,fn:''},
  {id:'bg_rcloud',g:'more',name:'彩虹雲',price:30,fn:''}
 ];
+const OWN0=['hat_straw','bow','book'];   /* 一開始就有的道具 */
+function shopState(){const v=rdSave();return {own:Array.isArray(v.own)?v.own:OWN0.slice(),worn:(v.worn&&typeof v.worn==='object')?v.worn:{head:'hat_straw'}};}
+let shopG='head';
 function drawShop(g){
+  shopG=g;const st=shopState();
   $('shop-grid').innerHTML=SHOP.filter(x=>x.g===g).map(x=>{
     let act;
     if(x.rare)act='<button class="btn alt" disabled style="opacity:.7">未解鎖</button>';
-    else if(x.worn)act='<button class="btn alt" data-t="這是示範稿">穿戴中</button>';
-    else if(x.own)act='<button class="btn alt" data-t="這是示範稿">穿上</button>';
-    else act='<button class="btn" data-t="這是示範稿，不會扣金幣"><svg style="width:18px;height:18px"><use href="#i-coin"/></svg><span class="num">'+x.price+'</span></button>';
+    else if(st.worn[x.g]===x.id)act='<button class="btn alt" data-w="'+x.id+'">穿戴中</button>';
+    else if(st.own.indexOf(x.id)>=0)act='<button class="btn alt" data-w="'+x.id+'">穿上</button>';
+    else act='<button class="btn" data-b="'+x.id+'"><svg style="width:18px;height:18px"><use href="#i-coin"/></svg><span class="num">'+x.price+'</span></button>';
     return '<div class="item'+(x.rare?' locked':'')+'"><div class="pic"><img src="'+IMG['it_'+x.id]+'" alt=""></div><b>'+x.name+'</b><p class="fn">'+(x.rare||x.fn||'')+'</p>'+act+'</div>';
   }).join('');
-  document.querySelectorAll('#shop-grid [data-t]').forEach(b=>b.addEventListener('click',()=>toast(b.dataset.t)));
+  document.querySelectorAll('#shop-grid [data-w]').forEach(b=>b.addEventListener('click',()=>{
+    const x=SHOP.find(i=>i.id===b.dataset.w),s2=shopState(),w=Object.assign({},s2.worn);
+    if(w[x.g]===x.id)delete w[x.g];else w[x.g]=x.id;   /* 每個部位只穿一件，再點一次脫下（預覽圖尚未連動，只存狀態） */
+    wrSave({worn:w});drawShop(g);
+  }));
+  document.querySelectorAll('#shop-grid [data-b]').forEach(b=>b.addEventListener('click',()=>{
+    const x=SHOP.find(i=>i.id===b.dataset.b),have=COINS_NOW();
+    if(have<x.price){toast('金幣不夠，還差 '+(x.price-have)+' 個');return;}
+    sheet(IMG['it_'+x.id],'兌換',x.name,'花 '+x.price+' 金幣兌換「'+x.name+'」？（目前 '+have+' 金幣）','兌換',()=>{
+      if(COINS_NOW()<x.price){toast('金幣不夠了');return;}
+      const s2=shopState();if(s2.own.indexOf(x.id)<0)s2.own.push(x.id);
+      wrSave({own:s2.own});addCoins(-x.price);toast('兌換了「'+x.name+'」！');drawShop(g);
+    });
+  }));
 }
 document.querySelectorAll('#shop-tabs button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#shop-tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));drawShop(b.dataset.g);}));
-drawShop('head');
+drawShop('head');renderCoins();
 
 /* 星星足跡與鑰匙碎片資料（顯示在島嶼頁） */
 const RN=['I','II','III','IV','V','VI','VII','VIII','IX'];
 const FRAG={1:['最美好的歌',['很久很久以前，世界上有一首歌，是大家聽過最美好的歌。星星出生的時候，就是照著它的樣子做的。所以他們唱得好準，一個音也不會錯。可是，沒有星星聽過完整的那一首。']],
  2:['大家都在唱歌的日子',['從前，早上有歌，晚上也有歌。煮飯有歌，走路有歌，連下雨天，大家也會一起哼。湖面還記得那些聲音，輕輕晃著，像在說：「再唱一次吧。」']],
- 3:['安靜下來的世界',['後來，不知道從哪一天開始，大家越來越忙。唱歌的人少了，聽歌的人也少了。有人說：「唱歌，又不能當飯吃。」世界一點一點，安靜下來。','那時候，在一座不在地圖上的小島，有一隻小精怪，每天站在安靜裡，用力地唱。']]};
+ 3:['安靜下來的世界',['後來，不知道從哪一天開始，大家越來越忙。唱歌的人少了，聽歌的人也少了。有人說：「唱歌，又不能當飯吃。」世界一點一點，安靜下來。','那時候，在一座不在地圖上的小島，有一隻小精怪，每天站在安靜裡，用力地唱。']],
+ 4:['被放下的樂器',['笛子、小鼓、豎琴，被輕輕放進箱子，放進湖裡，放在森林的樹洞。它們以為，只是睡一小覺。一直沒有人回來。有一支鳥形的陶笛睡得最沉，沉到忘了自己是被放下的。']],
+ 5:['管理者的決定',['有一位管理者，專門照顧這個世界。他發現，已經沒有人需要新的小人類了。他想了很久很久，決定：不再製作人類。山谷輕輕把這句話，回了三遍。','精怪也是管理者做的，大家都唱得很準，只有一隻，每次都走掉一點點。']],
+ 6:['要留下來的歌',['管理者說：「那首最美好的歌，不能消失。」他用它當模板，做出一顆一顆會唱歌的星星。他有點擔心：「星星如果有自己的想法，歌會不會走掉呢？」所以每一顆星星，都只照著模板唱。']],
+ 7:['一封奇怪的通知',['有一天夜裡，燈塔收到一封通知：「製作中，有兩份資料不小心跑進來了。一份是人類的資料。一份是……精怪的『走音』。」貓頭鷹歪著頭，把信念了三遍，沒有人看得懂。','管理者調了那隻精怪很多次，他還是走。他說：「沒關係，我還是想唱。」','燈塔上方，有一顆星星，悄悄抬起頭，聽著遠方不準的歌。']],
+ 8:['小小的、不一樣的聲音',['貝殼說，它聽到一個很小的聲音。不像星星那麼準，卻很用力。那是一個小小的人，和一隻小精怪，被放在一座不在地圖上的小島。他們不知道自己為什麼在那裡，只知道，他們很想讓世界聽見。']],
+ 9:['管理者看見了',['管理者很快就發現了這兩份不小心。他看著那兩個小小的身影，看了很久。島上的精怪都走開了，只有那隻走音的小精怪，沒有笑那個小小的人。花園裡的花苞，輕輕動了一下。']]};
 /* 島嶼頁：星星足跡＋鑰匙碎片＋該島動植物（已開的島才進得來） */
 function drawIsle(n){
   const I=ISLES.find(i=>i.n===n), F=FRAG[n], C=CRIT[n];
@@ -801,11 +856,11 @@ function drawDex(){
   $('dex-body').innerHTML=h;$('dex-cnt').textContent=(OPEN*2)+' / 24';
 }
 drawIsle(1);drawDex();
-/* 鑰匙碎片：點開跳出「正在拼湊的鑰匙」（第 N 片＝第 N 島；日記目前只做到第 3 島，所以只在 1～3 島給「翻閱日記」） */
+/* 鑰匙碎片：點開跳出「正在拼湊的鑰匙」（第 N 片＝第 N 島；日記已補到第 9 島） */
 $('q-lock').querySelector('small').textContent=Math.min(OPEN,9)+' / 9';
 $('q-dex').querySelector('small').textContent=(OPEN*2)+' / 24';
 $('q-lock').addEventListener('click',()=>{
-  if(window.KeyPuzzle)KeyPuzzle.open({open:Math.min(OPEN,9),isles:ISLES,journalMax:3,onJournal:n=>openIsle(n)});
+  if(window.KeyPuzzle)KeyPuzzle.open({open:Math.min(OPEN,9),isles:ISLES,journalMax:9,onJournal:n=>openIsle(n)});
   else sheet(IMG['boss_sit'],'鑰匙碎片',Math.min(OPEN,9)+' / 9 片','開一座島，就會拾獲一片。');
 });
 $('q-dex').addEventListener('click',()=>go('dex'));
@@ -822,8 +877,8 @@ const SCALE_NUM=['6̣', '7̣', '1', '2', '3', '4', '5', '6', '7', '1̇', '2̇', 
 const MN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const mname=m=>MN[((m%12)+12)%12]+(Math.floor(m/12)-1);
 let SUCC=12;
-try{const sv=JSON.parse(localStorage.getItem('olm_test_v1')||'null');if(sv){SUCC=sv.succ|0;JAR=Math.max(0,Math.min(NEED,sv.jar|0));}}catch(e){}
-function saveP(){try{localStorage.setItem('olm_test_v1',JSON.stringify({succ:SUCC,jar:JAR}));}catch(e){}}
+try{const sv=JSON.parse(localStorage.getItem('olm_test_v1')||'null');if(sv){SUCC=sv.succ|0;if(sv.jar!=null)JAR=Math.max(0,Math.min(NEED,sv.jar|0));}}catch(e){}
+function saveP(){wrSave({succ:SUCC,jar:JAR});}
 /* 任務清單、權重、週界、存檔都在共用的 wk-core.js（與 weekly-practice.html、song-practice.html 一致） */
 function wkState(){const P=OLM_WK.reload();return {tasks:P.tasks,given:P.given,week:P.week,elem:P.elem,bag:P.bag};}
 function renderWeekly(){
@@ -857,7 +912,7 @@ function renderProgress(){
   $('pr-jar-t').textContent=JAR+' / '+NEED;
   $('pr-jar-bar').style.width=(JAR/NEED*100)+'%';
   $('jar-n').textContent=JAR;
-  $('jar-hint').textContent=JAR>=NEED?'星星罐滿了。測試版不會開島。':'再 '+(NEED-JAR)+' 顆星星糖，就能開啟第 '+NEXT+' 座島，島民會送上謝禮金幣。';
+  $('jar-hint').textContent=!NEXT?'第 1～9 島都開啟了！第 10 島以後還沒上架，星星糖先存在罐子裡。':'再 '+(NEED-JAR)+' 顆星星糖，就能開啟第 '+NEXT+' 座島，島民會送上謝禮金幣。';
   drawJar(JAR);
 }
 renderProgress();
@@ -1033,8 +1088,8 @@ function blowLoop(){
 }
 $('start-blow').addEventListener('click',()=>{if(B.on)stopBlow();else startBlow();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopBlow();});
-window.addEventListener('pageshow',e=>{if(e.persisted){try{const sv=JSON.parse(localStorage.getItem('olm_test_v1')||'null');if(sv){SUCC=sv.succ|0;JAR=Math.max(0,Math.min(NEED,sv.jar|0));}}catch(_){}renderProgress();}});
-$('reset-p').addEventListener('click',()=>{SUCC=12;JAR=9;B.tries=[];saveP();renderProgress();drawTries();toast('已重設為示範進度');});
+window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();});   /* 從別頁（練習頁）返回：重載一次，讓開島結算與金幣同步 */
+$('reset-p').addEventListener('click',()=>{SUCC=12;JAR=9;B.tries=[];saveP();wrSave({open:3,coins:COIN0,own:OWN0.slice(),worn:{head:'hat_straw'}});location.reload();});
 
 /* ===== 小遊戲：直接嵌入收音版遊樂場（同一個網站，麥克風權限可往下傳） ===== */
 function closeGame(){
@@ -1064,7 +1119,7 @@ const ELF={t:0,last:0,i:-1,shown:false,TIPS:[
   '準是本領，用心是靈魂。'
 ]};
 (function(){const a=document.querySelector('.avatar img'),i=$('elf-i').querySelector('img');if(a)i.src=a.src;})();
-function elfProgress(){return JAR>=NEED?'星星罐滿了！快去看看新的島嶼吧。':'星星罐有 '+JAR+' 顆了，再 '+(NEED-JAR)+' 顆就能開啟第 '+NEXT+' 島！';}
+function elfProgress(){return !NEXT?'所有的島都亮起來了！下一座島，還在雲後面偷看呢。':'星星罐有 '+JAR+' 顆了，再 '+(NEED-JAR)+' 顆就能開啟第 '+NEXT+' 島！';}
 function elfLine(first){
   if(first)return '嗨！我是陶笛精靈，今天也一起練習吧！'+elfProgress();
   ELF.i=(ELF.i+1+Math.floor(Math.random()*3))%(ELF.TIPS.length+1);   /* 帶一點隨機，避免固定順序 */
@@ -1083,6 +1138,66 @@ function elfOnShow(v){
 }
 $('elf-i').addEventListener('click',()=>elfSay(false));
 $('elf-b').addEventListener('click',()=>{$('elf-b').hidden=true;});
+
+/* ===== 開島畫面（3 頁，可略過；獎勵已在載入時結算，略過也不會少）===== */
+(function(){
+  const css=document.createElement('style');
+  css.textContent='.open-ov{position:fixed;inset:0;z-index:1000;background:var(--vellum);display:flex;align-items:center;justify-content:center;padding:18px;overflow-y:auto}.open-ov[hidden]{display:none}'
+  +'.open-ov .oc{width:100%;max-width:440px;display:flex;flex-direction:column;gap:12px;text-align:center;color:var(--ink)}'
+  +'.open-ov small{color:var(--ink-2)}.open-ov h2{font-size:26px;margin:0}.open-ov p{margin:0;min-height:1.5em;line-height:1.7}'
+  +'.open-ov .glow{font-size:54px;color:var(--gold-hi);text-shadow:0 0 18px var(--gold),0 0 40px var(--gold-hi);animation:opglow 2.4s ease-in-out infinite}@keyframes opglow{50%{opacity:.55}}'
+  +'.open-ov .loot{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.open-ov .loot>div{flex:1;min-width:96px;border:3px solid var(--ink);border-radius:8px;padding:8px 6px;background:var(--vellum-2);font-size:14px}.open-ov .loot b{display:block;font-size:22px;color:var(--gold)}'
+  +'.open-ov .crits{display:flex;gap:10px;justify-content:center}.open-ov .crits>div{flex:1;border:2px solid var(--line);border-radius:8px;padding:8px;background:var(--vellum-2)}.open-ov .crits .ph{display:flex;justify-content:center}'
+  +'.open-ov .orow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}.open-ov .orow .btn{flex:1;min-width:140px}'
+  +'.open-ov .trace{border:2px dashed var(--line);border-radius:8px;padding:12px;background:var(--vellum-2);text-align:left}';
+  document.head.appendChild(css);
+  const titleOf=c=>c>=9?'銀河小樂手':c>=6?'星空探險家':c>=3?'小小星探':'星星見習生';
+  function type(el,text,ms,done){
+    const a=[...text];let i=0;el.textContent='';
+    const t=setInterval(()=>{if(!el.isConnected){clearInterval(t);return;}el.textContent+=a[i++]||'';if(i>=a.length){clearInterval(t);done&&done();}},ms);
+    return ()=>{clearInterval(t);el.textContent=text;};
+  }
+  function playOpen(n){
+    const I=ISLES.find(x=>x.n===n),S=STORY[n],F=FRAG[n],C=CRIT[n];
+    let ov=$('open-ov');if(!ov){ov=document.createElement('div');ov.id='open-ov';ov.className='open-ov';ov.setAttribute('role','dialog');ov.setAttribute('aria-label','開啟第 '+n+' 島');document.body.appendChild(ov);}
+    ov.hidden=false;
+    const done=()=>{ov.hidden=true;ov.innerHTML='';if(PEND.length)playOpen(PEND.shift());};
+    const skip='<button class="btn alt" data-o="skip">略過</button>';
+    const bind=()=>{const k=ov.querySelector('[data-o="skip"]');if(k)k.onclick=done;};
+    const p1=()=>{
+      ov.innerHTML='<div class="oc"><small>第 '+n+' 島・'+I.name+'</small><div class="glow" aria-hidden="true">✦</div><h2>開啟了！</h2><p id="o1"></p><p id="o2"></p><p id="o3" style="color:var(--ink-2);font-size:15px"></p><div class="orow">'+skip+'<button class="btn" id="o-go" hidden>繼續 ▶</button></div></div>';
+      bind();const go=$('o-go');let ok=false;const show=()=>{ok=true;go.hidden=false;};
+      type($('o1'),'星星想起了自己的歌聲！',70,()=>type($('o2'),'能量水晶又運作起來了，飛行船也亮了起來。',60,()=>type($('o3'),S[0],40,show)));
+      setTimeout(()=>{if(!ok&&go.isConnected)show();},9000);
+      go.onclick=p2;
+    };
+    const p2=()=>{
+      const ttl=titleOf(n),old=titleOf(n-1);
+      ov.innerHTML='<div class="oc"><h2>居民的謝禮</h2><p>「'+I.name+'」的居民很感謝你，送來了謝禮！</p>'
+        +'<div class="loot"><div><b>+'+OPEN_COIN+'</b>金幣</div><div><b>'+n+'／9</b>地圖碎片</div><div><b style="font-size:16px">'+ttl+'</b>'+(ttl!==old||n===1?'新稱號！':'稱號')+'</div></div>'
+        +'<div><small>圖鑑新增</small></div><div class="crits"><div><div class="ph">'+ISLE_ART.plant(n,64)+'</div><small>植物</small><br><b>'+C[0]+'</b></div><div><div class="ph">'+ISLE_ART.animal(n,64)+'</div><small>動物</small><br><b>'+C[1]+'</b></div></div>'
+        +'<div class="orow"><button class="btn alt" id="o-shop">用金幣去商店</button><button class="btn" id="o-go">繼續 ▶</button></div></div>';
+      $('o-shop').onclick=()=>{done();go('shop');};$('o-go').onclick=p3;
+    };
+    const p3=()=>{
+      ov.innerHTML='<div class="oc"><small>第 '+n+' 島・'+I.name+'</small><h2>星星足跡</h2><div class="trace"><small>星星說出了一個痕跡：</small><p id="o1"></p></div><p id="o2" style="color:var(--ink-2);font-size:15px;opacity:0;transition:opacity .6s">痕跡收進「日記」了。<br>鑰匙碎片 '+n+'／9「'+F[0]+'」入手！</p><div class="orow"><button class="btn alt" id="o-map">回地圖</button><button class="btn" id="o-diary" hidden>翻閱日記</button></div></div>';
+      $('o-map').onclick=done;$('o-diary').onclick=()=>{done();openIsle(n);};
+      type($('o1'),S[1],70,()=>{$('o2').style.opacity=1;$('o-diary').hidden=false;});
+      setTimeout(()=>{const d=$('o-diary');if(d&&d.isConnected){d.hidden=false;$('o2').style.opacity=1;}},9000);
+    };
+    p1();
+  }
+  window.__playOpen=playOpen;
+  if(PEND.length)setTimeout(()=>playOpen(PEND.shift()),300);
+})();
+/* 別頁改了存檔（星空試煉金幣、飛船測試工具）：同步金幣；星星罐滿了或開島數變了就重載（重載時結算開島） */
+window.addEventListener('storage',e=>{
+  if(e.key!==null&&e.key!==SVK)return;
+  renderCoins();
+  const v=rdSave();
+  if(!OPEN_Q&&(((v.jar|0)>=NEED&&OPEN<MAXOPEN)||(v.open!=null&&(v.open|0)!==OPEN)))location.reload();
+  else drawShop(shopG);
+});
 show(location.hash.slice(1));
 </script>
 

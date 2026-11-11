@@ -76,7 +76,7 @@ function recordPerfect(taskId){try{
   const delta=earned(P)-P.given;
   const o=JSON.parse(localStorage.getItem('olm_test_v1')||'null')||{succ:12,jar:9};
   o.succ=(o.succ|0)+1;
-  if(delta>0){P.given+=delta;o.jar=Math.min(NEED_STAR,(o.jar|0)+delta);}
+  if(delta>0){P.given+=delta;o.jar=Math.min(NEED_STAR*2-1,(o.jar|0)+delta);   /* 上限放到 79：罐滿後多的星星糖留著，回遊戲頁開島時結算 */}
   const ed=elemEarned(P)-P.elem;
   let ename='';
   if(ed>0){P.elem+=ed;P.bag=(P.bag|0)+ed;ename=addTypedElem(ed);}

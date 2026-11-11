@@ -384,7 +384,9 @@ function bagPanel(){
 <div class="grid2" style="margin-top:8px">
 <button class="btn alt" data-act="all3">每種 +3</button><button class="btn alt" data-act="reset">重設飛船</button></div>
 <button class="btn alt" style="margin-top:8px" data-act="fake">${S.fake===w.week?'取消「假裝本週任務完成」':'假裝本週任務完成'}</button>
-<button class="btn alt" style="margin-top:8px" data-act="unclaim" ${S.claimed===w.week?'':'disabled'}>重設本週晶體領取</button></div></details>
+<button class="btn alt" style="margin-top:8px" data-act="unclaim" ${S.claimed===w.week?'':'disabled'}>重設本週晶體領取</button>
+<button class="btn alt" style="margin-top:8px" data-act="jar10">星星罐 +10（測試開島，罐滿 40 就會開島）</button>
+<button class="btn alt" style="margin-top:8px" data-act="resetOpen">重設開島進度（回第 3 島、星星罐 9、金幣 86）</button></div></details>
 <h2>這版的暫定假設</h2><ul class="notes">
 <li>晶體名稱第 5～12 島是暫擬。每次升級放入任意 3 顆晶體（Lv1→2、Lv2→3 各一次）。</li>
 <li>放入的位置決定該部位的顏色：上方＝主色、右下＝紋飾、左下＝光暈。滿級後仍可重新提煉換色。</li>
@@ -431,6 +433,12 @@ document.addEventListener('click',e=>{
   else if(act==='reset'){S=Object.assign(fresh(),{isle:S.isle});pick=[null,null,null];setMsg('飛船已重設。');}
   else if(act==='fake'){const w=wk();S.fake=S.fake===w.week?-1:w.week;setMsg(S.fake===w.week?'已假裝本週任務完成，可到「提煉工坊」領晶體。':'已取消。');}
   else if(act==='unclaim'){S.claimed=-1;setMsg('已重設本週領取。');}
+  else if(act==='jar10'||act==='resetOpen'){
+    try{const T=JSON.parse(localStorage.getItem('olm_test_v1')||'null')||{};
+      if(act==='jar10'){T.jar=Math.min(79,(T.jar==null?9:(T.jar|0))+10);setMsg('星星罐 +10（現在 '+T.jar+'）。罐滿 40 顆，回地圖頁會開島。');}
+      else{T.jar=9;T.open=3;T.coins=86;T.own=['hat_straw','bow','book'];T.worn={head:'hat_straw'};S.isle=4;setMsg('開島進度已重設。');}
+      localStorage.setItem('olm_test_v1',JSON.stringify(T));}catch(e){setMsg('寫入失敗');}
+  }
   save();render();
 });
 document.addEventListener('keydown',e=>{
