@@ -154,6 +154,7 @@ h1{font-family:var(--display);font-size:30px;line-height:1.15;margin:0;font-weig
 .tools{display:flex;gap:8px;flex:none}
 .tbtn{height:44px;padding:0 14px;border-radius:22px;background:var(--surface);border:1px solid var(--line);font-size:14px}
 .tbtn.off{color:var(--mute);text-decoration:line-through}
+#pad.wide{grid-template-columns:repeat(7,1fr);gap:4px}#pad.wide .key{height:40px;border-radius:9px}#pad.wide .key span{font-size:11px}#pad.wide .key small{margin-top:1px;font-size:11px}
 .key.down{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.35);filter:brightness(1.15)}
 @media (max-width:380px){.key span{font-size:12px}h1{font-size:26px}}
 @media (prefers-reduced-motion:reduce){.key{transition:none}}
@@ -216,16 +217,27 @@ const $=s=>document.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const pick=a=>a[Math.floor(Math.random()*a.length)];
-const NOTES=[
+const NOTES8=[
  {n:'Do',l:'C5',f:523.25,c:'#ff5d5d'},{n:'Re',l:'D5',f:587.33,c:'#ff9a3c'},
  {n:'Mi',l:'E5',f:659.25,c:'#ffd23f'},{n:'Fa',l:'F5',f:698.46,c:'#5fd068'},
  {n:'Sol',l:'G5',f:783.99,c:'#34d1c6'},{n:'La',l:'A5',f:880.00,c:'#5b9bff'},
  {n:'Si',l:'B5',f:987.77,c:'#a78bfa'},{n:'高Do',l:'C6',f:1046.50,c:'#ff8aa0'}
 ];
+const NOTES=NOTES8.slice();   // 目前使用中的音域（可在 8 音 / 複管 21 音之間切換，原地替換內容）
+/* 複管音域 A4～G7，共 21 個音（譜面低一個八度；簡譜：低音下一點、C6–B6 上一點、C7–G7 上兩點） */
+const COL7=['#ff5d5d','#ff9a3c','#ffd23f','#5fd068','#34d1c6','#5b9bff','#a78bfa'];
+const NOTES21=(()=>{
+  const M=[69,71,72,74,76,77,79,81,83,84,86,88,89,91,93,95,96,98,100,101,103],NM={0:0,2:1,4:2,5:3,7:4,9:5,11:6},SOL=['Do','Re','Mi','Fa','Sol','La','Si'],LT=['C','D','E','F','G','A','B'];
+  return M.map(m=>{
+    const k=NM[m%12],oct=Math.floor(m/12)-1;
+    return {n:(m<72?'低':m<84?'':m<96?'高':'高高')+SOL[k],s:SOL[k],l:LT[k]+oct,f:440*Math.pow(2,(m-69)/12),c:COL7[k],dot:m<72?-1:m<84?0:m<96?1:2,num:String(k+1)};
+  });
+})();
 
 /* ---------- 6 孔陶笛指法（依教材「基本指法 1-1」） ----------
    順序：[左上, 右上, 左下, 右下, 左拇指, 右拇指]，1 = 按住，0 = 放開 */
 const NUM=['1','2','3','4','5','6','7','1'];
+NOTES8.forEach((n,i)=>{n.s=n.n;n.dot=i===7?1:0;n.num=NUM[i];});
 const FING6=[
  [1,1,1,1,1,1],[1,0,1,1,1,1],[1,1,1,0,1,1],[1,0,1,0,1,1],
  [0,0,1,1,1,1],[0,0,1,0,1,1],[0,0,0,1,1,1],[0,0,0,0,1,1]
@@ -459,13 +471,14 @@ function noteUp(i,fromDemo){
 function releaseAll(){[...padDown].forEach(i=>{padDown.delete(i);setKey(i,false);if(cur&&cur.up&&cur.state==='run')cur.up(i);});}
 
 /* 底部八鍵 */
-(function(){
-  const pad=$('#pad');
+function buildPad(){
+  const pad=$('#pad');pad.innerHTML='';keyEls.length=0;
+  const W21=NOTES.length>8;pad.classList.toggle('wide',W21);
   NOTES.forEach((n,i)=>{
     const b=document.createElement('button');
     b.className='key';b.style.setProperty('--kc',n.c);
     b.setAttribute('aria-label',n.n+' '+n.l);
-    b.innerHTML=fingSVG(FING6[i],28)+'<span>'+n.n+'</span><small'+(i===7?' class="hi"':'')+'>'+NUM[i]+'</small>';
+    b.innerHTML=(W21?'':fingSVG(FING6[i],28))+'<span>'+(W21?n.s:n.n)+'</span><small'+(!W21&&n.dot>0?' class="hi"':'')+'>'+NUM[i]+(W21?(n.dot>0?'˙'.repeat(n.dot):n.dot<0?'.':''):'')+'</small>';
     b.addEventListener('pointerdown',e=>{
       e.preventDefault();Snd.init();Snd.resume();
       try{b.setPointerCapture(e.pointerId);}catch(_){}
@@ -475,11 +488,14 @@ function releaseAll(){[...padDown].forEach(i=>{padDown.delete(i);setKey(i,false)
     b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('lostpointercapture',up);
     pad.appendChild(b);keyEls.push(b);
   });
+}
+buildPad();
+(function(){
   const map={};'12345678'.split('').forEach((k,i)=>map[k]=i);'asdfghjk'.split('').forEach((k,i)=>map[k]=i);
   window.addEventListener('keydown',e=>{
     if(e.repeat||e.metaKey||e.ctrlKey||e.altKey)return;
     const i=map[e.key.toLowerCase()];
-    if(i==null||$('#stage').hidden)return;
+    if(i==null||$('#stage').hidden||NOTES.length>8)return;
     Snd.init();Snd.resume();noteDown(i,false);
   });
   window.addEventListener('keyup',e=>{
@@ -576,6 +592,7 @@ function startRound(){
 }
 function openGame(g,wantDemo){
   clearGate();stopCountdown();
+  setRange(false);
   gdef=g;cur=g.make(api);
   $('#hub').hidden=true;$('#stage').hidden=false;
   $('#pad').classList.toggle('nof',!!g.hideFing);
@@ -587,7 +604,7 @@ function openGame(g,wantDemo){
 }
 function goHub(){
   clearGate();stopCountdown();
-  releaseAll();cur=null;
+  releaseAll();cur=null;setRange(false);
   if(raf){cancelAnimationFrame(raf);raf=0;}
   removeBanner();ov.hidden=true;
   $('#stage').hidden=true;$('#hub').hidden=false;
@@ -631,10 +648,19 @@ cv.addEventListener('pointerdown',e=>{
 
 /* ---------- 收音：用麥克風聽陶笛的音，當作按下對應的音鍵 ---------- */
 const GATE=0.007;
-const SCALE_MIDI=NOTES.map(n=>Math.round(69+12*Math.log2(n.f/440)));   // Do～高Do 對應的 MIDI 音號（72,74,76,77,79,81,83,84）
+const SCALE_MIDI=NOTES.map(n=>Math.round(69+12*Math.log2(n.f/440)));
+function setRange(wide){
+  if((NOTES.length>8)===!!wide)return;
+  if(typeof Mic!=='undefined'&&Mic.on)Mic.release();
+  const src=wide?NOTES21:NOTES8;
+  NOTES.length=0;NUM.length=0;SCALE_MIDI.length=0;
+  src.forEach(n=>{NOTES.push(n);NUM.push(n.num);SCALE_MIDI.push(Math.round(69+12*Math.log2(n.f/440)));});
+  Mic.maxHz=wide?3500:2200;Mic.cur=-1;Mic.cand=-1;Mic.cn=0;
+  padDown.clear();buildPad();
+}   // Do～高Do 對應的 MIDI 音號（72,74,76,77,79,81,83,84）
 const MNAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function midiName(m){return MNAMES[((m%12)+12)%12]+(Math.floor(m/12)-1);}
-const Mic={hist:[],miss:0,sm:null,smT:0,on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:-1,qn:0,dbgT:0,lat:.16,fromMic:false,cal:null,off:0,
+const Mic={maxHz:2200,hist:[],miss:0,sm:null,smT:0,on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:-1,qn:0,dbgT:0,lat:.16,fromMic:false,cal:null,off:0,
   async start(){
     if(this.on)return;
     this.off=0;try{localStorage.removeItem('ocarina_mic_off');}catch(e){}   // 一律用標準音高（A=440），不做個人校準，每個小孩的陶笛都用同一把尺
@@ -669,7 +695,7 @@ const Mic={hist:[],miss:0,sm:null,smT:0,on:false,ctx:null,an:null,stream:null,bu
     let sum=0;for(let i=0;i<n;i++)sum+=b[i]*b[i];
     const rms=Math.sqrt(sum/n),out={note:-1,f:0,raw:0,cl:0,rms:rms,cents:0};
     if(rms<GATE)return out;
-    const minLag=Math.max(2,Math.floor(sr/2200)),maxLag=Math.min(n-2,Math.floor(sr/180));
+    const minLag=Math.max(2,Math.floor(sr/this.maxHz)),maxLag=Math.min(n-2,Math.floor(sr/180));
     const ns=new Float32Array(maxLag+2);
     for(let lag=minLag-1;lag<=maxLag+1;lag++){let acf=0,m=0;for(let i=0;i<n-lag;i++){const a=b[i],c=b[i+lag];acf+=a*c;m+=a*a+c*c;}ns[lag]=m>0?2*acf/m:0;}
     const peaks=[];let seenNeg=false,curMax=-1,curIdx=-1;
@@ -1217,18 +1243,19 @@ GAMES.push({id:'ninja',name:'音符忍者',tag:'視譜 · 反應',color:'#a78bfa
  why:'練的是：看五線譜讀音名、反應速度。音符統一用白色，不會被顏色誤導；音符裡面有簡譜數字（1–7），可以在開始前選「不顯示」純看譜。',
  make(api){
   const g={options:[
-    {label:'音域',choices:[['Do–Sol（5 個音）'],['Do–高Do（8 個音）']],val:0},
+    {label:'音域',choices:[['Do–Sol（5 個音）'],['Do–高Do（8 個音）'],['複管 A4–G7（21 個音）']],val:0},
     {label:'速度',choices:[['慢'],['中'],['快']],val:1},
     {label:'簡譜提示',choices:[['顯示簡譜數字'],['不顯示（純看譜）']],val:0}
   ],state:'intro'};
   const TOTAL=20,SPD=[.11,.18,.25];
   let notes,scroll,lives,cleared,streak,score,pieces,slashes,shake,wrongT,age,rel,best;
   /* 譜面依教材：Do(1) 在下加一線，高 Do(1̇) 在第三間；step 0 = 第一線 */
-  function geo(){const s=Math.min(api.H/20,17),W=api.W;return{s,baseY:api.H*.5+3*s,zoneX:Math.max(W*.26,104),sp:W*.36};}
+  function off(){return NOTES.length>8?4:2;}
+  function geo(){const wd=NOTES.length>8,s=Math.min(api.H/(wd?23:20),17),W=api.W;return{s,baseY:api.H*.5+(wd?6:3)*s,zoneX:Math.max(W*.26,104),sp:W*.36};}
   function target(){for(const n of notes)if(n.state===0)return n;return null;}
   function nx(n,gm){return api.W+30+n.k*gm.sp-scroll;}
   g.reset=function(){
-    const hi=this.options[0].val===0?4:7;notes=[];let prev=-1,rep=0;
+    const v0=this.options[0].val;setRange(v0===2);const hi=v0===0?4:v0===1?7:20;notes=[];let prev=-1,rep=0;
     for(let k=0;k<TOTAL;k++){
       let d=Math.floor(Math.random()*(hi+1));
       if(d===prev&&rep>=1){d=(d+1+Math.floor(Math.random()*hi))%(hi+1);}
@@ -1242,7 +1269,7 @@ GAMES.push({id:'ninja',name:'音符忍者',tag:'視譜 · 反應',color:'#a78bfa
     if(t&&nx(t,gm)<api.W*.94){
       if(i===t.deg){
         t.state=1;cleared++;streak++;best=Math.max(best,streak);score+=100;
-        const x=nx(t,gm),y=gm.baseY-(t.deg-2)*gm.s;
+        const x=nx(t,gm),y=gm.baseY-(t.deg-off())*gm.s;
         pieces.push({x,y,vx:-60,vy:-90,r:0,vr:-5,col:'#3A2A1A',half:0,life:1},{x,y,vx:90,vy:60,r:0,vr:6,col:'#3A2A1A',half:1,life:1});
         slashes.push({x,y,life:1});
         api.tone(i,.5);api.sfx('good');api.score(cleared+'/'+TOTAL);
@@ -1297,9 +1324,10 @@ GAMES.push({id:'ninja',name:'音符忍者',tag:'視譜 · 反應',color:'#a78bfa
     for(const n of notes){
       if(n.state!==0)continue;
       const x=nx(n,gm);if(x<-30||x>W+40)continue;
-      const st=n.deg-2,y=gm.baseY-st*s,rx=s*1.3,ry=s*.92;
+      const st=n.deg-off(),y=gm.baseY-st*s,rx=s*1.3,ry=s*.92;
       c.strokeStyle='rgba(58,42,26,.7)';c.lineWidth=1.5;
-      if(st<=-2){const ly=gm.baseY+2*s;c.beginPath();c.moveTo(x-rx*1.4,ly);c.lineTo(x+rx*1.4,ly);c.stroke();}
+      for(let ls=-2;ls>=st-.01;ls-=2){const ly=gm.baseY-ls*s;c.beginPath();c.moveTo(x-rx*1.4,ly);c.lineTo(x+rx*1.4,ly);c.stroke();}
+      for(let ls=10;ls<=st+.01;ls+=2){const ly=gm.baseY-ls*s;c.beginPath();c.moveTo(x-rx*1.4,ly);c.lineTo(x+rx*1.4,ly);c.stroke();}
       c.fillStyle='#3A2A1A';
       c.beginPath();c.ellipse(x,y,rx,ry,-.35,0,6.2832);c.fill();
       c.strokeStyle='#3A2A1A';c.lineWidth=2;
@@ -1308,9 +1336,9 @@ GAMES.push({id:'ninja',name:'音符忍者',tag:'視譜 · 反應',color:'#a78bfa
       c.stroke();
       if(hint){
         const fs=Math.round(ry*1.5);
-        c.fillStyle='#3A2A1A';c.font='700 '+fs+'px '+FONT;c.textAlign='center';c.fillText(NUM[n.deg],x,y+fs*.36);
-        if(n.deg===7){c.fillStyle='#3A2A1A';c.beginPath();c.arc(x,y-fs*.5,1.8,0,6.2832);c.fill();}
-        c.fillStyle='rgba(58,42,26,.75)';c.font='700 12px '+FONT;c.fillText(NOTES[n.deg].n,x,gm.baseY+s*4.9);
+        c.fillStyle='#FFF8E1';c.font='700 '+fs+'px '+FONT;c.textAlign='center';c.fillText(NUM[n.deg],x,y+fs*.36);
+        const dd=NOTES[n.deg].dot;c.fillStyle='#FFF8E1';for(let q=0;q<Math.abs(dd);q++){c.beginPath();c.arc(x,dd>0?y-fs*.5-q*5:y+fs*.55+q*5,1.8,0,6.2832);c.fill();}
+        c.fillStyle='rgba(58,42,26,.75)';c.font='700 12px '+FONT;c.fillText(NOTES[n.deg].n,x,NOTES.length>8?H-6:gm.baseY+s*4.9);
       }
     }
     // 切開的碎片
@@ -1505,7 +1533,7 @@ GAMES.push({id:'echo',name:'回音森林',tag:'聽音 · 記憶',color:'#ff8aa0'
  pitch:'森林小鳥唱一段短短的旋律，你把它原樣吹回去。每次都是新的，越唱越長。',
  why:'練的是：聽音辨音、短期記憶、指法連接。選「五聲音階」，怎麼組合都好聽，挫折感低。',
  make(api){
-  const g={options:[{label:'音域',choices:[['五聲音階（5 個音）'],['全音階（8 個音）']],val:0}],state:'intro'};
+  const g={options:[{label:'音域',choices:[['五聲音階（5 個音）'],['全音階（8 個音）'],['複管 A4–G7（21 個音）']],val:0}],state:'intro'};
   const ROUNDS=8,PENTA=[0,1,2,4,5];
   let pool,L,seq,phase,idx,lit,sched,time,round,clean,attempts,winAtL,mouth,bubble,vo,echoed,demoWrongDone;
   function at(d,fn){sched.push({t:time+d,fn});}
@@ -1536,9 +1564,9 @@ GAMES.push({id:'echo',name:'回音森林',tag:'聽音 · 記憶',color:'#ff8aa0'
   }
   function newPhrase(){seq=mkSeq();attempts=0;phase='wait';bubble='準備好了按開始';api.gate(listen,'開始 ▶','第 '+(round+1)+' 題');}
   g.reset=function(){
-    pool=this.options[0].val===0?PENTA:[0,1,2,3,4,5,6,7];
-    L=2;winAtL=0;round=0;clean=0;attempts=0;time=0;sched=[];lit=new Array(8).fill(0);mouth=0;bubble='';
-    vo=new Array(8).fill(null);echoed=[];idx=0;phase='wait';demoWrongDone=false;
+    {const v0=this.options[0].val;setRange(v0===2);pool=v0===0?PENTA:v0===1?[0,1,2,3,4,5,6,7]:NOTES.map((_,i)=>i);}
+    L=2;winAtL=0;round=0;clean=0;attempts=0;time=0;sched=[];lit=new Array(NOTES.length).fill(0);mouth=0;bubble='';
+    vo=new Array(NOTES.length).fill(null);echoed=[];idx=0;phase='wait';demoWrongDone=false;
     api.score('0/'+ROUNDS);
     seq=mkSeq();attempts=0;listen();
   };
@@ -1566,7 +1594,7 @@ GAMES.push({id:'echo',name:'回音森林',tag:'聽音 · 記憶',color:'#ff8aa0'
   g.up=function(i){if(vo[i]){vo[i].off();vo[i]=null;}};
   g.update=function(dt){
     time+=dt;mouth=Math.max(0,mouth-dt*2);
-    for(let i=0;i<8;i++)lit[i]=Math.max(0,lit[i]-dt*2.2);
+    for(let i=0;i<NOTES.length;i++)lit[i]=Math.max(0,lit[i]-dt*2.2);
     for(let k=sched.length-1;k>=0;k--){
       if(sched[k].t<=time){const f=sched[k].fn;sched.splice(k,1);f();}
     }
@@ -1598,13 +1626,15 @@ GAMES.push({id:'echo',name:'回音森林',tag:'聽音 · 記憶',color:'#ff8aa0'
       else{c.strokeStyle=phase==='listen'?'rgba(255,255,255,.18)':'rgba(255,255,255,.5)';c.lineWidth=2;c.stroke();}
     }
     // 八顆音石（排成彩虹弧）
-    for(let i=0;i<8;i++){
-      const x=i*lw+lw/2,y=H*.78-Math.sin(Math.PI*i/7)*H*.2,act=pool.includes(i),R=Math.min(lw*.4,24);
+    const wd=NOTES.length>8;
+    for(let i=0;i<NOTES.length;i++){
+      const x=wd?(i%7)*(W/7)+W/14:i*lw+lw/2,y=wd?H*(.56+Math.floor(i/7)*.14):H*.78-Math.sin(Math.PI*i/7)*H*.2,act=pool.includes(i),R=wd?Math.min(W/7*.4,19):Math.min(lw*.4,24);
       c.globalAlpha=act?1:.18;
       c.fillStyle='#EFE1BF';c.beginPath();c.arc(x,y,R+4,0,6.2832);c.fill();
       c.fillStyle=NOTES[i].c;c.globalAlpha=(act?.45:.1)+lit[i]*.55;
       c.beginPath();c.arc(x,y,R*(1+lit[i]*.22),0,6.2832);c.fill();
-      c.globalAlpha=act?1:.25;c.fillStyle='#3A2A1A';c.font='700 12px '+FONT;c.textAlign='center';c.fillText(NOTES[i].n,x,y+4);
+      c.globalAlpha=act?1:.25;c.fillStyle='#3A2A1A';c.font='700 12px '+FONT;c.textAlign='center';c.fillText(wd?NOTES[i].s:NOTES[i].n,x,y+4);
+      if(wd){const dd=NOTES[i].dot;for(let q=0;q<Math.abs(dd);q++){c.beginPath();c.arc(x,dd>0?y-9-q*4:y+10+q*4,1.5,0,6.2832);c.fill();}}
       c.globalAlpha=1;
     }
     c.fillStyle='#6E5337';c.font='12px '+FONT;c.textAlign='left';c.fillText('樂句長度 '+L+' 個音',10,H-8);
