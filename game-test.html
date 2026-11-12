@@ -1155,8 +1155,10 @@ function elfSay(first){
 function elfOnShow(v){
   const b=$('elf-b');
   if(v!=='map'){clearTimeout(ELF.t);b.hidden=true;return;}
-  let sess=false;try{sess=sessionStorage.getItem('olm_elf')==='1';}catch(e){}
-  if(!sess){try{sessionStorage.setItem('olm_elf','1');}catch(e){}clearTimeout(ELF.t);ELF.t=setTimeout(()=>elfSay(true),900);}
+  /* 精靈出現紀錄改永久存檔（olm_elf_v1）：每天第一次進地圖打招呼，同一天內不再重複 */
+  const today=new Date(Date.now()+8*3600e3).toISOString().slice(0,10);
+  const sess=OLMSave.read('olm_elf_v1').last===today;
+  if(!sess){OLMSave.patch('olm_elf_v1',{last:today});clearTimeout(ELF.t);ELF.t=setTimeout(()=>elfSay(true),900);}
   else if(Date.now()-ELF.last>60000){clearTimeout(ELF.t);ELF.t=setTimeout(()=>elfSay(false),900);}
 }
 $('elf-i').addEventListener('click',()=>elfSay(false));
