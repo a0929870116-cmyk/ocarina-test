@@ -62,6 +62,7 @@ ul.errs li b{font-weight:800}
 .vol i{display:block;height:100%;width:0;background:var(--green)}
 [hidden]{display:none!important}
 </style>
+<script src="save-core.js"></script>
 <script src="sfx.js"></script>
 <script src="wk-core.js"></script>
 <script>if(window.Sfx){Sfx.auto('.back','nav');Sfx.auto('.btn:not(#goBtn):not(#stopBtn):not(#demoBtn)','tap');}</script>
@@ -521,9 +522,9 @@ function setLive(c,l){$('count').textContent=c;$('live').textContent=l||' ';}
 /* ========== 曲目、範圍與進度（原型：只存手機，不計星星糖與水晶碎片） ========== */
 let cfg=TASK?{song:TASK.song,from:TASK.from,to:TASK.to}:{song:'star',from:1,to:8};
 function taskKey(){return cfg.song+':'+cfg.from+'-'+cfg.to;}
-function loadP(){let o=null;try{o=JSON.parse(localStorage.getItem(STORE)||'null');}catch(e){}if(!o||typeof o!=='object')o={tasks:{},played:{}};o.tasks=o.tasks||{};o.played=o.played||{};return o;}
+function loadP(){let o=OLMSave.read(STORE);o.tasks=o.tasks||{};o.played=o.played||{};return o;}
 let P=loadP();
-function saveP(){try{localStorage.setItem(STORE,JSON.stringify(P));}catch(e){}}
+function saveP(){OLMSave.patch(STORE,function(d){Object.assign(d,P);});}
 function renderP(){
   const k=taskKey();
   if(TASK){

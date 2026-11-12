@@ -85,6 +85,7 @@ select{min-height:44px;font:500 16px var(--font-b);border:2px solid var(--line);
 .mc{display:block;width:100%;max-width:340px;margin:0 auto}
 .preview .gem{width:20px;height:20px;vertical-align:-5px}
 </style>
+<script src="save-core.js"></script>
 <script src="sfx.js"></script>
 <script src="wk-core.js"></script>
 <script>if(window.Sfx){Sfx.auto('[data-tab]','nav');Sfx.auto('.btn','tap');}</script>
@@ -120,7 +121,7 @@ function todayKey(){return new Date(Date.now()+8*3600e3).toISOString().slice(0,1
 function weekIdx(start){return Math.max(0,Math.floor((Date.parse(todayKey()+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/864e5/7));}
 function wk(){
   try{
-    const o=JSON.parse(localStorage.getItem('olm_wk_v2')||'null');
+    const o=OLMSave.read(OLMSave.K.WK);
     if(o&&o.v===2){
       const st=o.start||todayKey(), idx=weekIdx(st), prev=typeof o.week==='number'?o.week:0;
       return {has:true,week:idx,tasks:prev===idx?(o.tasks||{}):{}};
@@ -140,8 +141,7 @@ function fresh(){
 function load(){
   const f=fresh();
   try{
-    const raw=localStorage.getItem(KEY); if(!raw) return f;
-    const s=JSON.parse(raw)||{};
+    const s=OLMSave.read(KEY); if(!Object.keys(s).length) return f;
     ['el','lv'].forEach(k=>Object.assign(f[k],s[k]||{}));
     if(s.cr&&typeof s.cr==='object') f.cr=s.cr;
     if(s.isle>=1&&s.isle<=12) f.isle=s.isle;
@@ -150,7 +150,8 @@ function load(){
   }catch(e){}
   return f;
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+/* 只寫本頁負責的欄位（el、lv、cr、isle），其餘欄位（如別頁新增的）不動 */
+function save(){OLMSave.patch(KEY,function(d){d.el=S.el;d.lv=S.lv;d.cr=S.cr;d.isle=S.isle;});}
 let S=load(), tab='craft', pick=[null,null,null], mcPart='hull', msg='', openD={tools:false};
 
 /* ===== 繪圖輔助 ===== */
@@ -426,10 +427,10 @@ document.addEventListener('click',e=>{
   else if(act==='fake'){const w=wk();S.fake=S.fake===w.week?-1:w.week;setMsg(S.fake===w.week?'已假裝本週任務完成，可到「提煉工坊」領水晶碎片。':'已取消。');}
   else if(act==='unclaim'){S.claimed=-1;setMsg('已重設本週領取。');}
   else if(act==='jar10'||act==='resetOpen'){
-    try{const T=JSON.parse(localStorage.getItem('olm_test_v1')||'null')||{};
+    try{OLMSave.patch(OLMSave.K.TEST,function(T){
       if(act==='jar10'){T.jar=Math.min(79,(T.jar==null?9:(T.jar|0))+10);setMsg('星星罐 +10（現在 '+T.jar+'）。罐滿 40 顆，回地圖頁會開島。');}
       else{T.jar=9;T.open=3;T.coins=86;T.own=['hat_straw','bow','book'];T.worn={head:'hat_straw'};S.isle=4;setMsg('開島進度已重設。');}
-      localStorage.setItem('olm_test_v1',JSON.stringify(T));}catch(e){setMsg('寫入失敗');}
+    });}catch(e){setMsg('寫入失敗');}
   }
   save();render();
 });

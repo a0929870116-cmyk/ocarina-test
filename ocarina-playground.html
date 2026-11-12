@@ -217,6 +217,7 @@ h1{font-family:var(--display);font-size:30px;line-height:1.15;margin:0;font-weig
     <div id="pad"></div>
   </section>
 </div>
+<script src="save-core.js"></script>
 <script src="isle-art.js"></script>
 <script>
 (function(){
@@ -262,8 +263,8 @@ const KEY='ocarina_playground_v1';
 let save={stars:{},total:0,dragon:0,streak:0,last:'',plays:0,fing:true,name:'',profiles:{}};
 const PF=['stars','total','dragon','streak','last','plays','rec'];
 const PFD=()=>({stars:{},total:0,dragon:0,streak:0,last:'',plays:0,rec:null});
-try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s)save=Object.assign(save,s);}catch(e){}
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(save));}catch(e){}}
+try{const s=OLMSave.read(KEY);if(Object.keys(s).length)save=Object.assign(save,s);}catch(e){}
+function persist(){try{OLMSave.write(KEY,save);}catch(e){}}
 function stash(){if(!save.profiles)save.profiles={};if(save.name){const o={};PF.forEach(k=>o[k]=save[k]);save.profiles[save.name]=o;}}
 function switchName(nn){
   if(nn===save.name)return;
@@ -291,14 +292,14 @@ function touchDay(){
    寫入飛船存檔 olm_ship_v1.el；每日紀錄存 olm_arcade_v1。金幣商店還是示範數字，所以 +5 只先記錄。 */
 const ARC_KEY='olm_arcade_v1',SHIP_KEY='olm_ship_v1',ARC_DAY_CAP=6,ARC_KIND_CAP=30,ARC_COIN=5;
 const ARC_ELEM=[['stardust','星塵'],['moonwater','月光水'],['rainbow','彩虹絲'],['cloud','雲絮'],['glowdew','螢光露'],['lantern','燈籠火'],['core','星核砂'],['seaglass','海玻璃'],['note','音符晶'],['aurora','極光冰'],['peak','星峰石'],['ruby','城堡紅玉']];
-function arcRead(k){try{const o=JSON.parse(localStorage.getItem(k)||'null');return o&&typeof o==='object'?o:{};}catch(e){return {};}}
+function arcRead(k){return OLMSave.read(k);}
 function dropCount(w){return w<=0?2:w<=2?1:0;}
 function arcSettle(wrong){
   const A=arcRead(ARC_KEY),S=arcRead(SHIP_KEY),today=dayStr(new Date());
   if(A.day!==today){A.day=today;A.n=0;A.coin=0;}
   const out={wrong:wrong,items:[],coin:0,capped:false,full:false,want:dropCount(wrong)};
-  if(!A.coin){A.coin=1;A.coinSum=(A.coinSum|0)+ARC_COIN;out.coin=ARC_COIN;
-    try{const T=arcRead('olm_test_v1');T.coins=(T.coins==null?86:(T.coins|0))+ARC_COIN;localStorage.setItem('olm_test_v1',JSON.stringify(T));}catch(e){}   /* 金幣入帳（商店錢包） */
+  if(!A.coin){A.coin=1;out.coin=ARC_COIN;
+    try{OLMSave.patch(OLMSave.K.TEST,function(T){T.coins=(T.coins==null?86:(T.coins|0))+ARC_COIN;});}catch(e){}   /* 金幣入帳（商店錢包） */
   }
   const isle=(S.isle>=1&&S.isle<=12)?S.isle:4;
   S.el=S.el||{};S.isle=isle;
@@ -312,7 +313,7 @@ function arcSettle(wrong){
     S.el[e[0]]=(S.el[e[0]]|0)+1;A.n=(A.n|0)+1;
     out.items.push({n:n,id:e[0],name:e[1]});
   });
-  try{localStorage.setItem(ARC_KEY,JSON.stringify(A));localStorage.setItem(SHIP_KEY,JSON.stringify(S));}catch(e){}
+  try{OLMSave.write(ARC_KEY,A);OLMSave.patch(SHIP_KEY,function(d){d.el=S.el;d.isle=S.isle;});}catch(e){}
   out.left=Math.max(0,ARC_DAY_CAP-(A.n|0));
   return out;
 }
@@ -721,7 +722,7 @@ function midiName(m){return MNAMES[((m%12)+12)%12]+(Math.floor(m/12)-1);}
 const Mic={maxHz:2200,hist:[],miss:0,sm:null,smT:0,on:false,ctx:null,an:null,stream:null,buf:null,tm:0,cand:-1,cn:0,cur:-1,qn:0,dbgT:0,lat:.16,fromMic:false,cal:null,off:0,
   async start(){
     if(this.on)return;
-    this.off=0;try{localStorage.removeItem('ocarina_mic_off');}catch(e){}   // 一律用標準音高（A=440），不做個人校準，每個小孩的陶笛都用同一把尺
+    this.off=0;try{OLMSave.raw.del('ocarina_mic_off');}catch(e){}   // 一律用標準音高（A=440），不做個人校準，每個小孩的陶笛都用同一把尺
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw {name:'NoSupport'};
     const AC=window.AudioContext||window.webkitAudioContext;
     const ctx=new AC();   // 一定要在「點擊」當下建立（iPhone 需求），不能等到允許麥克風之後
@@ -913,14 +914,14 @@ function renderHub(){
   const pin=$('#pin'),pi=$('#pinin'),pt=$('#pint');
   let pinOk=false;
   function askPin(){
-    let has='';try{has=localStorage.getItem('ocarina_pin')||'';}catch(e){}
+    let has='';try{has=OLMSave.raw.get('ocarina_pin')||'';}catch(e){}
     pt.textContent=has?'輸入老師密碼':'第一次使用：設定 4 位數老師密碼（這台裝置）';
     pi.value='';pin.hidden=false;setTimeout(()=>pi.focus(),50);
   }
   $('#pinok').addEventListener('click',()=>{
     const v=pi.value.trim();if(!/^\d{4}$/.test(v)){pt.textContent='請輸入 4 位數字';return;}
-    let has='';try{has=localStorage.getItem('ocarina_pin')||'';}catch(e){}
-    if(!has){try{localStorage.setItem('ocarina_pin',v);}catch(e){}pin.hidden=true;openDash();}
+    let has='';try{has=OLMSave.raw.get('ocarina_pin')||'';}catch(e){}
+    if(!has){try{OLMSave.raw.set('ocarina_pin',v);}catch(e){}pin.hidden=true;openDash();}
     else if(v===has){pin.hidden=true;openDash();}
     else{pt.textContent='密碼不對，再試一次';pi.value='';}
   });

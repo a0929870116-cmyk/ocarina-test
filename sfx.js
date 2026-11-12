@@ -8,7 +8,7 @@
 (function(){
   if(window.Sfx)return;
   var ctx=null,master=null,micOn=false,last=0,sel=[];
-  var off=false;try{off=localStorage.getItem('olm_sfx_off')==='1';}catch(e){}
+  var off=false;try{off=window.OLMSave?OLMSave.flag('olm_sfx_off'):localStorage.getItem('olm_sfx_off')==='1';}catch(e){}
 
   function get(){
     if(ctx)return ctx;
@@ -59,7 +59,7 @@
     snap:function(){play('snap');},
     mic:function(b){micOn=!!b;},
     probe:null,
-    setOn:function(b){off=!b;try{localStorage.setItem('olm_sfx_off',b?'0':'1');}catch(e){}},
+    setOn:function(b){off=!b;try{if(window.OLMSave)OLMSave.setFlag('olm_sfx_off',!b);else localStorage.setItem('olm_sfx_off',b?'0':'1');}catch(e){}},
     isOn:function(){return !off;},
     auto:function(selector,kind){sel.push([selector,kind||'tap']);}
   };

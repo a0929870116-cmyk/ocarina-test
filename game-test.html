@@ -313,6 +313,7 @@ a.btn{text-decoration:none}
 @keyframes elfpop{from{opacity:0;transform:translateY(8px) scale(.95)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.elf-i,.elf-b{animation:none}}
 </style>
+<script src="save-core.js"></script>
 <script src="sfx.js"></script>
 <script src="wk-core.js"></script>
 <script>if(window.Sfx){
@@ -607,8 +608,8 @@ const STORY={1:['星光草原的小星星，一顆也不亮了。男孩吹起喚
  9:['音符花都不開了。男孩吹起喚醒音，花園慢慢想起歌，清清亮亮的，像花一朵一朵開。','花園裡，開著唯一一朵紫色的音符花。']};
 /* ===== 存檔（olm_test_v1：{succ,jar,open,coins,own,worn}）：一律「讀舊值再合併」寫回，避免蓋掉別頁（wk-core、星空試煉、飛船工具）寫的欄位 ===== */
 const SVK='olm_test_v1';
-function rdSave(){try{return JSON.parse(localStorage.getItem(SVK)||'null')||{};}catch(e){return {};}}
-function wrSave(p){try{localStorage.setItem(SVK,JSON.stringify(Object.assign(rdSave(),p)));}catch(e){}}
+function rdSave(){return OLMSave.read(SVK);}
+function wrSave(p){OLMSave.patch(SVK,p);}
 const COIN0=86, OPEN_COIN=30, MAXOPEN=9, NEED=40;   /* 金幣初始 86（測試版示範值）；開島謝禮每島 30；目前只有第 1～9 島可開；星星罐 40 顆 */
 const OPEN_Q=(()=>{const v=Math.floor(Number(new URLSearchParams(location.search).get('open')));return v>=1&&v<=12?v:0;})();   /* ?open=N：只改畫面（測圖鑑），不結算、不存檔 */
 let JAR=9; const PEND=[];   /* PEND：這次載入時剛開的島（載入完成後依序播開島畫面） */
@@ -621,7 +622,7 @@ const OPEN=(()=>{
     if(o>=MAXOPEN)j=Math.min(j,NEED);
     if(PEND.length){
       wrSave({jar:j,open:o,coins:c});
-      try{const sh=JSON.parse(localStorage.getItem('olm_ship_v1')||'null')||{};sh.isle=o<MAXOPEN?o+1:MAXOPEN;localStorage.setItem('olm_ship_v1',JSON.stringify(sh));}catch(e){}   /* 目前練習的島＝下一座要開的島（水晶碎片掉落依此） */
+      try{OLMSave.patch(OLMSave.K.SHIP,function(sh){sh.isle=o<MAXOPEN?o+1:MAXOPEN;});}catch(e){}   /* 目前練習的島＝下一座要開的島（水晶碎片掉落依此） */
     }else if(sv.jar!=null&&(sv.jar|0)!==j)wrSave({jar:j});
   }
   JAR=j;
@@ -899,7 +900,7 @@ const SCALE_NUM=['6̣', '7̣', '1', '2', '3', '4', '5', '6', '7', '1̇', '2̇', 
 const MN=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const mname=m=>MN[((m%12)+12)%12]+(Math.floor(m/12)-1);
 let SUCC=12;
-try{const sv=JSON.parse(localStorage.getItem('olm_test_v1')||'null');if(sv){SUCC=sv.succ|0;if(sv.jar!=null)JAR=Math.max(0,Math.min(NEED,sv.jar|0));}}catch(e){}
+try{const sv=OLMSave.read(SVK);if(Object.keys(sv).length){SUCC=sv.succ|0;if(sv.jar!=null)JAR=Math.max(0,Math.min(NEED,sv.jar|0));}}catch(e){}
 function saveP(){wrSave({succ:SUCC,jar:JAR});}
 /* 任務清單、權重、週界、存檔都在共用的 wk-core.js（與 weekly-practice.html、song-practice.html 一致） */
 function wkState(){const P=OLM_WK.reload();return {tasks:P.tasks,given:P.given,week:P.week,elem:P.elem,bag:P.bag};}

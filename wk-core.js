@@ -31,10 +31,10 @@ function earned(o){const q=qList();let x=0;TASKS.forEach((t,i)=>{x+=Math.min((o.
 function overflow(o){let x=0;TASKS.forEach(t=>{x+=Math.max(0,(o.tasks[t.id]||0)-t.T);});return x;}
 function elemEarned(o){if(!ELEM_ON)return 0;return Math.min(ELEM_CAP,Math.floor(overflow(o)/ELEM_EVERY));}
 function load(){
-  let o=null;try{o=JSON.parse(localStorage.getItem(WK)||'null');}catch(e){}
+  let o=OLMSave.read(WK);if(!Object.keys(o).length)o=null;
   let prev=0;
   if(!o||o.v!==2){
-    let old=null;try{old=JSON.parse(localStorage.getItem('olm_weekly_v1')||'null');}catch(e){}
+    let old=OLMSave.read(OLMSave.K.OLDWK);if(!Object.keys(old).length)old=null;
     o={v:2,start:todayKey(),week:0,played:(old&&old.done|0)||0,total:(old&&old.perfect|0)||0,tasks:{},given:0};
     TASKS.forEach(t=>{o.tasks[t.id]=0;});
     if(old&&old.perfect)o.tasks[TASKS[0].id]=old.perfect|0;
@@ -52,21 +52,22 @@ function load(){
   if(typeof o.given!=='number')o.given=0;
   if(typeof o.bag!=='number')o.bag=0;
   if(typeof o.elem!=='number')o.elem=elemEarned(o);
-  try{localStorage.setItem(WK,JSON.stringify(o));}catch(e){}
+  OLMSave.patch(WK,function(d){Object.assign(d,o);});
   return o;
 }
 let P=load();
-function save(){try{localStorage.setItem(WK,JSON.stringify(P));}catch(e){}}
+function save(){OLMSave.patch(WK,function(d){Object.assign(d,P);});}
 function reload(){P=load();return P;}
 
 /* 元素種類：每島一種，依「目前練習的島」掉落（要和 ship-workshop.html 的元素順序一致） */
 const ISLE_ELEM=[['stardust','星塵'],['moonwater','月光水'],['rainbow','彩虹絲'],['cloud','雲絮'],['glowdew','螢光露'],['lantern','燈籠火'],['core','星核砂'],['seaglass','海玻璃'],['note','音符晶'],['aurora','極光冰'],['peak','星峰石'],['ruby','城堡紅玉']];
 function addTypedElem(n){
-  const o=JSON.parse(localStorage.getItem('olm_ship_v1')||'null')||{};
-  const isle=(o.isle>=1&&o.isle<=12)?o.isle:4,e=ISLE_ELEM[isle-1];
-  o.el=o.el||{};o.el[e[0]]=(o.el[e[0]]|0)+n;o.isle=isle;
-  localStorage.setItem('olm_ship_v1',JSON.stringify(o));
-  return e[1];
+  let name='';
+  OLMSave.patch(OLMSave.K.SHIP,function(o){
+    const isle=(o.isle>=1&&o.isle<=12)?o.isle:4,e=ISLE_ELEM[isle-1];
+    o.el=o.el||{};o.el[e[0]]=(o.el[e[0]]|0)+n;o.isle=isle;name=e[1];
+  });
+  return name;
 }
 /* 「有效吹奏」一次（有吹完、不論全對與否）：計入總共吹了幾次 */
 function recordPlayed(){P.played=(P.played|0)+1;save();}
@@ -75,13 +76,13 @@ function recordPerfect(taskId){try{
   const TASK=taskById(taskId);if(!TASK)return '';
   P.tasks[taskId]=(P.tasks[taskId]|0)+1;P.total=(P.total|0)+1;
   const delta=earned(P)-P.given;
-  const o=JSON.parse(localStorage.getItem('olm_test_v1')||'null')||{succ:12,jar:9};
+  const o=OLMSave.read(OLMSave.K.TEST);if(o.succ==null)o.succ=12;if(o.jar==null)o.jar=9;
   o.succ=(o.succ|0)+1;
   if(delta>0){P.given+=delta;o.jar=Math.min(NEED_STAR*2-1,(o.jar|0)+delta);   /* 上限放到 79：罐滿後多的星星糖留著，回遊戲頁開島時結算 */}
   const ed=elemEarned(P)-P.elem;
   let ename='';
   if(ed>0){P.elem+=ed;P.bag=(P.bag|0)+ed;ename=addTypedElem(ed);}
-  localStorage.setItem('olm_test_v1',JSON.stringify(o));
+  OLMSave.patch(OLMSave.K.TEST,function(d){d.succ=o.succ;d.jar=o.jar;});
   save();
   const full=(o.jar|0)>=NEED_STAR;
   const em=ELEM_ON?' 本週元素 '+P.elem+'／'+ELEM_CAP:'';
