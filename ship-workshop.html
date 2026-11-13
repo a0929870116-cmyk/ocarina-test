@@ -207,7 +207,7 @@ function load(){
 }
 /* 只寫本頁負責的欄位（el、lv、cr、isle），其餘欄位（如別頁新增的）不動 */
 function save(){OLMSave.patch(KEY,function(d){d.el=S.el;d.lv=S.lv;d.cr=S.cr;d.isle=S.isle;});}
-const DEV=(function(){const t=[window,window.parent,window.top];for(const w of t){try{if(/[?&]dev=1(&|$)/.test(w.location.search))return true;}catch(e){}}return false;})();
+const DEV=false;   /* 正式站：測試工具關閉（測試站 ocarina-beta 才有 ?dev=1） */
 let S=load(), tab='craft', pick=[null,null,null], mcPart='hull', msg='', openD={tools:false};
 
 /* ===== 繪圖輔助 ===== */
